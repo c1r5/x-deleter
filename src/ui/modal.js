@@ -82,7 +82,7 @@ export function openSearchModal(document, theme, onExecute) {
     host.setAttribute("data-x-deleter-modal", "")
     const shadow = host.attachShadow({ mode: "open" })
     shadow.innerHTML = modalChrome
-    applyTheme(host, theme)
+    applyTheme(shadow.querySelector(".back"), theme)
     host.style.cssText = "position:fixed;inset:0;z-index:2147483000;display:flex;"
     const body = shadow.querySelector("tbody")
     const rows = []

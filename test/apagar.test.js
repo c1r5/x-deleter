@@ -166,7 +166,13 @@ test("percorre a timeline, o arquivo e apaga", async () => {
     assert.equal(found[1].type, "repost")
     assert.equal(found[2].type, "post")
     assert.equal(calls.some((call) => call.init.method === "POST"), false)
+    assert.deepEqual(calls.filter((call) => call.init.method === "GET").map((call) => call.url), [
+        timelineUrl("replies", userId, null),
+        timelineUrl("old", userId, null),
+    ])
+    assert.equal(new Set(found.map((tweet) => tweet.id)).size, found.length)
     assert.match(logs.join("\n"), /🔎 Buscar respostas/)
+    assert.match(logs.join("\n"), /🔎 Buscar tweets antigos/)
     assert.match(logs.join("\n"), /➕ 666 repost/)
 
     const sleeps = []
@@ -250,7 +256,9 @@ test("percorre a timeline, o arquivo e apaga", async () => {
         onTweet(tweet) { replies.push(tweet) },
     })
     assert.equal(replySearch.status, "done")
+    assert.equal(replies.length, 1)
     assert.equal(replies[0].type, "reply")
+    assert.equal(calls.filter((call) => call.init.method === "GET").length, 2)
     assert.equal(calls.some((call) => call.init.method === "POST"), false)
 
     let ready = 0
@@ -298,6 +306,13 @@ test("percorre a timeline, o arquivo e apaga", async () => {
     assert.equal(fromFile.status, "done")
     assert.deepEqual(parseArchiveText(archive).map((item) => item.tweet.id_str), ["a1", "a2", "a3"])
     assert.deepEqual(calls.map((call) => call.init.body), [deleteBody("a1")])
+    const archived = await runSearch({
+        ...ctx,
+        options: { ...options, fromArchive: true },
+        fetch: async () => { throw new Error("nao buscar") },
+        readArchive: async () => archive,
+    })
+    assert.deepEqual(archived.tweets.map((tweet) => tweet.id), ["a1", "a2"])
 
     const built = spawnSync(process.execPath, ["scripts/build.mjs"], { cwd: root, encoding: "utf8" })
     assert.equal(built.status, 0, built.stderr)

@@ -5,7 +5,7 @@ function list(value) {
 export function optionsFromFields(fields) {
     return {
         fromArchive: Boolean(fields.fromArchive),
-        unretweet: Boolean(fields.unretweet),
+        unretweet: fields.unretweet == null ? true : Boolean(fields.unretweet),
         keepPinned: Boolean(fields.keepPinned),
         urlsOnly: Boolean(fields.urlsOnly),
         oldTweets: Boolean(fields.oldTweets),

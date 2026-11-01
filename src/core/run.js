@@ -130,15 +130,19 @@ async function deleteIds(ids, ctx) {
     }
 }
 
+const searchKeys = ["replies", "old", "reposts"]
+
+function readySearchSlots(slots) {
+    return searchKeys.map((key) => slots[key]).filter((slot) => slot && slot.transactionId)
+}
+
 function missingSearchSlot(options, slots) {
     if (activeIds(options.onlyIds).length > 0 || options.fromArchive) return null
-    const slot = listSlot(options, slots)
-    if (!slot.transactionId) return slot
+    if (readySearchSlots(slots).length === 0) return slots.replies
     return null
 }
 
-async function walkTimeline(ctx, push) {
-    const slot = listSlot(ctx.options, ctx.slots)
+async function walkTimeline(ctx, slot, push, seen) {
     let cursor = null
     let stop = false
     while (cursor !== "finished" && !stop) {
@@ -154,7 +158,11 @@ async function walkTimeline(ctx, push) {
             credentials: "include",
         }, ctx, "fetch_tweets", 5)
         const scanned = scanEntries(entriesFromPayload(data), ctx.options, ctx.env.userId)
-        for (const tweet of scanned.tweets) push(tweet)
+        for (const tweet of scanned.tweets) {
+            if (seen.has(tweet.id)) continue
+            seen.add(tweet.id)
+            push(tweet)
+        }
         cursor = scanned.cursor
         stop = scanned.stop
         if (cursor !== "finished" && !stop) await ctx.sleep(3000)
@@ -177,13 +185,17 @@ export async function runSearch(ctx) {
     if (ctx.options.fromArchive) {
         ctx.log("🔎 arquivo")
         const text = await ctx.readArchive()
-        const found = collectArchive(parseArchiveText(text), ctx.options, ctx.env.userId)
+        const found = collectArchive(parseArchiveText(text), { ...ctx.options, unretweet: null }, ctx.env.userId)
         for (const tweet of found.tweets) push(tweet)
     } else {
         const only = activeIds(ctx.options.onlyIds)
         if (only.length === 0) {
-            ctx.log(`🔎 ${listSlot(ctx.options, ctx.slots).label}`)
-            await walkTimeline(ctx, push)
+            const seen = new Set()
+            for (const slot of readySearchSlots(ctx.slots)) {
+                if (ctx.isStopped?.()) break
+                ctx.log(`🔎 ${slot.label}`)
+                await walkTimeline(ctx, slot, push, seen)
+            }
         } else {
             ctx.log("🔎 lista de ids")
             for (const id of only) push({ id, type: "post", text: "", date: "" })

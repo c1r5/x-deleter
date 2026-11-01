@@ -119,6 +119,11 @@ test("o preenchimento manual grava o mesmo slot que o parser", () => {
     assert.equal(marked.body.includes("{{tweet_id}}"), false)
     assert.deepEqual(marked.candidates, ["body.variables.left", "body.variables.right"])
     assert.equal(loadSlots(storage).delete.transactionId, "tid-apagar")
+    assert.equal(loadSlots(storage).replies.transactionId, "tid-apagar")
+    assert.equal(loadSlots(storage).replies.authorization, "Bearer apagar")
+    assert.equal(loadSlots(storage).replies.clientUuid, "uuid-apagar")
+    assert.match(loadSlots(storage).replies.path, /UserRepliesTimeline/)
+    assert.match(loadSlots(storage).delete.path, /DeleteTweet/)
 
     const named = openSlot("replies", loadSlots(storage), null)
     assert.equal(named.title, "Buscar respostas")
@@ -127,7 +132,7 @@ test("o preenchimento manual grava o mesmo slot que o parser", () => {
 
     restoreSlot(storage, "delete")
     assert.deepEqual(loadSlots(storage).delete, defaultSlots().delete)
-    assert.equal(loadSlots(storage).replies.transactionId, "tid-respostas")
+    assert.equal(loadSlots(storage).replies.transactionId, "tid-apagar")
     restoreAll(storage)
     assert.deepEqual(loadSlots(storage).replies, defaultSlots().replies)
     assert.deepEqual(loadSlots(storage).old, defaultSlots().old)

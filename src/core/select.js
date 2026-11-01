@@ -102,7 +102,7 @@ export function collectArchive(data, options, userId) {
         if (!item.tweet || !item.tweet.id_str) continue
         const replyToSelf = item.tweet.in_reply_to_user_id_str === userId
         const startsWithRt = item.tweet.full_text.startsWith("RT ")
-        const rtOk = (options.unretweet === true && startsWithRt) || (options.unretweet === false && !startsWithRt)
+        const rtOk = options.unretweet == null || (options.unretweet === true && startsWithRt) || (options.unretweet === false && !startsWithRt)
         const tweet = {
             id: item.tweet.id_str,
             text: item.tweet.full_text,
