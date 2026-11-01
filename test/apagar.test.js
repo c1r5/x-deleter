@@ -6,7 +6,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { defaultOptions, defaultSlots } from "../src/core/options.js"
 import { deleteBody, deleteUrl, timelineUrl } from "../src/core/request.js"
-import { runDeletion, runSearch } from "../src/core/run.js"
+import { actionGroups, defaultActions, runDeletion, runExecution, runSearch, toggleAction } from "../src/core/run.js"
 import { collectTimeline, parseArchiveText } from "../src/core/select.js"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
@@ -166,6 +166,69 @@ test("percorre a timeline, o arquivo e apaga", async () => {
     assert.equal(found[1].type, "repost")
     assert.equal(found[2].type, "post")
     assert.equal(calls.some((call) => call.init.method === "POST"), false)
+    assert.match(logs.join("\n"), /🔎 Buscar respostas/)
+    assert.match(logs.join("\n"), /➕ 666 repost/)
+
+    const sleeps = []
+    const execLogs = []
+    const execCalls = []
+    const executed = await runExecution({
+        ...ctx,
+        slots: slotsWithTid(),
+        sleep: async (ms) => { sleeps.push(ms) },
+        log: (line) => execLogs.push(line),
+        fetch: async (url, init) => {
+            execCalls.push({ url, init })
+            return { ok: true, status: 200, json: async () => ({}) }
+        },
+    }, found.map((tweet) => ({ ...tweet, selected: true })), defaultActions())
+    assert.equal(executed.status, "done")
+    assert.deepEqual(execCalls.map((call) => JSON.parse(call.init.body).variables.tweet_id), ["666", "111", "888"])
+    assert.equal(sleeps.filter((ms) => ms === 30000).length, 1)
+    assert.equal(sleeps.includes(1000), true)
+    assert.match(execLogs.join("\n"), /▶️ unretweet, 1 itens/)
+    assert.match(execLogs.join("\n"), /▶️ delete posts, 2 itens/)
+    assert.match(execLogs.join("\n"), /🏁 execução terminou/)
+    assert.equal(execLogs.some((line) => line.includes("delete replies")), false)
+
+    const nuked = toggleAction(defaultActions(), "nuke", true)
+    assert.equal(nuked.nuke, true)
+    assert.equal(nuked.unretweet, false)
+    assert.equal(nuked.deletePosts, false)
+    assert.equal(nuked.deleteReplies, false)
+    const restored = toggleAction(nuked, "deletePosts", true)
+    assert.equal(restored.nuke, false)
+    assert.equal(restored.deletePosts, true)
+    assert.deepEqual(actionGroups(nuked, found.map((tweet) => ({ ...tweet, selected: true }))).map((group) => group.type), ["repost", "post"])
+    assert.deepEqual(actionGroups(defaultActions(), [{ id: "1", type: "post", selected: false }]), [])
+
+    const rateWaits = []
+    const rateLogs = []
+    let tries = 0
+    const rated = await runExecution({
+        ...ctx,
+        slots: slotsWithTid(),
+        sleep: async (ms) => { rateWaits.push(ms) },
+        log: (line) => rateLogs.push(line),
+        fetch: async () => {
+            tries += 1
+            if (tries === 1) return { ok: false, status: 429 }
+            if (tries === 2) return { ok: false, status: 429 }
+            return { ok: true, status: 200, json: async () => ({}) }
+        },
+    }, [{ id: "111", type: "post", text: "", date: "", selected: true }], { nuke: false, unretweet: false, deletePosts: true, deleteReplies: false })
+    assert.equal(rated.status, "done")
+    assert.deepEqual(rateWaits.slice(0, 2), [60000, 120000])
+    assert.match(rateLogs.join("\n"), /⏳ limite de taxa, esperando 60 s/)
+    assert.match(rateLogs.join("\n"), /⏳ limite de taxa, esperando 120 s/)
+
+    const blockedDelete = await runExecution({
+        ...ctx,
+        slots: defaultSlots(),
+        log: (line) => logs.push(line),
+    }, found, defaultActions())
+    assert.equal(blockedDelete.status, "fail")
+    assert.equal(blockedDelete.missing, "Apagar tweet")
 
     calls = []
     const listed = await runSearch({

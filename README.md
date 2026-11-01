@@ -67,7 +67,11 @@ Apagar só estes IDs não percorre a timeline e apaga essa lista. Nesse modo, e 
 
 ## O lote
 
-Buscar muda o status para `buscando` e abre a lista no centro da tela. As linhas entram conforme a página chega, já marcadas. Fechar interrompe a busca. Essa ação não apaga. Sem transaction id no slot de busca, o modal não abre e o log diz qual slot falta. No fim da busca o status fica `done`. `fail` cobre slot sem transaction id, arquivo ausente ou tentativas esgotadas.
+Buscar muda o status para `buscando` e abre a lista no centro da tela. As linhas entram conforme a página chega, já marcadas. Fechar interrompe a busca. Essa ação não apaga. Sem transaction id no slot de busca, o modal não abre e o log diz qual slot falta. No fim da busca o status fica `done`.
+
+Executar fica no canto inferior esquerdo do modal e só liga quando a busca termina. Ao lado estão Nuke, unretweet, delete posts e delete replies. As três últimas começam ligadas. Nuke começa desligado. Ligar Nuke desliga as outras. Ligar qualquer uma das outras desliga Nuke. Executar usa o slot Apagar tweet nas linhas marcadas, na ordem unretweet, delete replies, delete posts. Entre itens do mesmo tipo há 1 s. No 429 a espera começa em 1 minuto e dobra até 5 minutos. Outro erro HTTP espera 10 s vezes a tentativa, até 8 vezes. Entre tipos há 30 s, pulados quando o tipo seguinte não tem linha. O status da execução é `executando`, e no fim `done`. `fail` cobre slot sem transaction id, arquivo ausente, nada selecionado ou tentativas esgotadas.
+
+O log dessas etapas leva emoji: 🔎 busca, ➕ linha, ▶️ ação, 💥 Nuke, ⏳ espera, ✅ item, ⚠️ nova tentativa, ❌ falha, 🏁 fim.
 
 No status 429 o log avisa e a espera é de 1 minuto. Outro erro HTTP espera e tenta de novo.
 

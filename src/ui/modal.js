@@ -1,3 +1,4 @@
+import { defaultActions, toggleAction } from "../core/run.js"
 import { applyTheme } from "./theme.js"
 
 const modalChrome = `
@@ -36,6 +37,10 @@ const modalChrome = `
   th { font-size: 13px; color: var(--muted); font-weight: 700; }
   td.text { white-space: pre-wrap; word-break: break-word; }
   input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+  footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; }
+  button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; font: inherit; }
+  button.primary:disabled { opacity: 0.6; }
+  footer label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 </style>
 <div class="back">
   <div class="modal" role="dialog" aria-modal="true" aria-label="Tweets encontrados">
@@ -49,6 +54,13 @@ const modalChrome = `
         <tbody></tbody>
       </table>
     </div>
+    <footer>
+      <button class="primary" type="button" data-action="execute" disabled>Executar</button>
+      <label><input type="checkbox" data-choice="nuke"> Nuke</label>
+      <label><input type="checkbox" data-choice="unretweet" checked> unretweet</label>
+      <label><input type="checkbox" data-choice="deletePosts" checked> delete posts</label>
+      <label><input type="checkbox" data-choice="deleteReplies" checked> delete replies</label>
+    </footer>
   </div>
 </div>`
 
@@ -65,7 +77,7 @@ export function showDate(value) {
     return `${day}/${month}/${date.getUTCFullYear()}`
 }
 
-export function openSearchModal(document, theme) {
+export function openSearchModal(document, theme, onExecute) {
     const host = document.createElement("div")
     host.setAttribute("data-x-deleter-modal", "")
     const shadow = host.attachShadow({ mode: "open" })
@@ -73,16 +85,32 @@ export function openSearchModal(document, theme) {
     applyTheme(host, theme)
     host.style.cssText = "position:fixed;inset:0;z-index:2147483000;display:flex;"
     const body = shadow.querySelector("tbody")
+    const rows = []
+    const actions = defaultActions()
+    const execute = shadow.querySelector("[data-action=execute]")
+    function paintActions() {
+        for (const input of shadow.querySelectorAll("[data-choice]")) {
+            input.checked = Boolean(actions[input.dataset.choice])
+        }
+    }
     const api = {
         stopped: false,
+        enable() {
+            if (!api.stopped) execute.disabled = false
+        },
         addTweet(tweet) {
             if (api.stopped) return
+            const record = { ...tweet, selected: true }
+            rows.push(record)
             const row = document.createElement("tr")
             const pick = document.createElement("td")
             const box = document.createElement("input")
             box.type = "checkbox"
             box.checked = true
             box.dataset.id = tweet.id
+            box.addEventListener("change", () => {
+                record.selected = box.checked
+            })
             pick.append(box)
             const type = document.createElement("td")
             type.textContent = tweet.type
@@ -99,6 +127,19 @@ export function openSearchModal(document, theme) {
             host.remove()
         },
     }
+    for (const input of shadow.querySelectorAll("[data-choice]")) {
+        input.addEventListener("change", () => {
+            Object.assign(actions, toggleAction(actions, input.dataset.choice, input.checked))
+            paintActions()
+        })
+    }
+    execute.addEventListener("click", () => {
+        if (execute.disabled || !onExecute) return
+        execute.disabled = true
+        Promise.resolve(onExecute(rows.map((row) => ({ ...row })), { ...actions })).finally(() => {
+            if (!api.stopped) execute.disabled = false
+        })
+    })
     shadow.querySelector("[data-action=close]").addEventListener("click", () => api.close())
     shadow.querySelector(".back").addEventListener("click", (event) => {
         if (event.target === event.currentTarget) api.close()

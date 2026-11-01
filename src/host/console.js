@@ -1,4 +1,4 @@
-import { runSearch } from "../core/run.js"
+import { runExecution, runSearch } from "../core/run.js"
 import { loadSlots, restoreAll, restoreSlot, saveSlot } from "./storage.js"
 import { openSearchModal } from "../ui/modal.js"
 import { mountPanel } from "../ui/panel.js"
@@ -78,7 +78,22 @@ mountPanel(document, window, {
                     onProgress: (value) => panel.progress(value),
                     readArchive: async () => fileText,
                     onReady() {
-                        modal = openSearchModal(document, sampleTheme(document, window))
+                        modal = openSearchModal(document, sampleTheme(document, window), (tweets, choices) => {
+                            panel.setStatus("executando")
+                            return runExecution({
+                                options,
+                                slots: loadSlots(localStorage),
+                                env: readEnv(),
+                                fetch: globalThis.fetch.bind(globalThis),
+                                sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+                                log: (line) => panel.log(line),
+                                onProgress: (value) => panel.progress(value),
+                                readArchive: async () => fileText,
+                            }, tweets, choices).then((result) => {
+                                panel.setStatus(result.status)
+                                return result
+                            })
+                        })
                     },
                     onTweet(tweet) {
                         modal?.addTweet(tweet)
@@ -86,6 +101,9 @@ mountPanel(document, window, {
                     isStopped() {
                         return Boolean(modal && modal.stopped)
                     },
+                }).then((result) => {
+                    modal?.enable()
+                    return result
                 })
             },
         })
