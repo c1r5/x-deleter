@@ -325,6 +325,7 @@ async function deleteIds(ids, ctx) {
         }
         retry = 0
         ctx.log(`${i}/${ids.length}`)
+        ctx.onProgress?.({ done: i + 1, total: ids.length })
         await ctx.sleep(100)
     }
 }
@@ -374,6 +375,256 @@ async function runDeletion(ctx) {
     return { status: "done" }
 }
 
+function isDark(color) {
+    const match = String(color).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+    if (!match) return false
+    const red = Number(match[1])
+    const green = Number(match[2])
+    const blue = Number(match[3])
+    return (red * 299 + green * 587 + blue * 114) / 1000 < 128
+}
+
+function themeFrom(sample) {
+    const dark = sample.scheme ? sample.scheme === "dark" : isDark(sample.background)
+    return {
+        bg: sample.background,
+        text: sample.color,
+        muted: sample.muted || sample.color,
+        line: sample.border || sample.color,
+        surface: sample.surface || sample.background,
+        accent: sample.accent || "#1d9bf0",
+        scheme: dark ? "dark" : "light",
+        btnBg: dark ? "#eff3f4" : sample.color,
+        btnText: dark ? "#0f1419" : sample.background,
+    }
+}
+
+function sampleTheme(document, view) {
+    const body = view.getComputedStyle(document.body)
+    const link = document.querySelector("a[href]")
+    const accent = link ? view.getComputedStyle(link).color : ""
+    let surface = body.backgroundColor
+    let border = body.borderTopColor
+    const nodes = document.querySelectorAll("div, article, section")
+    const limit = Math.min(nodes.length, 200)
+    for (let i = 0; i < limit; i++) {
+        const style = view.getComputedStyle(nodes[i])
+        if (surface === body.backgroundColor && style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" && style.backgroundColor !== body.backgroundColor) {
+            surface = style.backgroundColor
+        }
+        if (style.borderTopColor && style.borderTopColor !== "rgba(0, 0, 0, 0)") border = style.borderTopColor
+    }
+    const declared = document.documentElement.style.colorScheme
+    const scheme = declared === "dark" || declared === "light" ? declared : (isDark(body.backgroundColor) ? "dark" : "light")
+    return themeFrom({
+        background: body.backgroundColor,
+        color: body.color,
+        muted: body.color,
+        border,
+        surface,
+        accent,
+        scheme,
+    })
+}
+
+function applyTheme(target, theme) {
+    target.style.setProperty("--bg", theme.bg)
+    target.style.setProperty("--text", theme.text)
+    target.style.setProperty("--muted", theme.muted)
+    target.style.setProperty("--line", theme.line)
+    target.style.setProperty("--surface", theme.surface)
+    target.style.setProperty("--accent", theme.accent)
+    target.style.setProperty("--scheme", theme.scheme)
+    target.style.setProperty("--btn-bg", theme.btnBg)
+    target.style.setProperty("--btn-text", theme.btnText)
+    target.style.colorScheme = theme.scheme
+}
+
+function list(value) {
+    return String(value || "").split(",").map((item) => item.trim()).filter(Boolean)
+}
+
+function optionsFromFields(fields) {
+    return {
+        fromArchive: Boolean(fields.fromArchive),
+        unretweet: Boolean(fields.unretweet),
+        keepPinned: Boolean(fields.keepPinned),
+        urlsOnly: Boolean(fields.urlsOnly),
+        oldTweets: Boolean(fields.oldTweets),
+        keywords: list(fields.keywords),
+        ignoreIds: list(fields.ignoreIds),
+        onlyIds: list(fields.onlyIds),
+        afterDate: fields.afterDate || "1900-01-01",
+        beforeDate: fields.beforeDate || "2026-10-30",
+    }
+}
+
+
+
+async function begin(fields, fileText, deps) {
+    const options = optionsFromFields(fields)
+    if (options.fromArchive && !fileText) {
+        deps.panel.log("falta o tweets.js")
+        deps.panel.setStatus("fail")
+        return { status: "fail" }
+    }
+    deps.panel.setStatus("deleting")
+    try {
+        const result = await deps.run(options)
+        deps.panel.setStatus(result.status)
+        return result
+    } catch (error) {
+        deps.panel.log(error instanceof Error ? error.message : String(error))
+        deps.panel.setStatus("fail")
+        return { status: "fail" }
+    }
+}
+
+
+
+const markup = `
+<style>
+  :host { all: initial; }
+  .wrap {
+    box-sizing: border-box;
+    width: 380px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px 16px 16px;
+    overflow: auto;
+    background: var(--bg);
+    color: var(--text);
+    color-scheme: var(--scheme);
+    border-left: 1px solid var(--line);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; min-height: 53px; }
+  h2 { margin: 0; font-size: 20px; font-weight: 800; }
+  button.icon { width: 34px; height: 34px; border: 0; border-radius: 999px; background: transparent; color: var(--text); }
+  button.icon svg { width: 20px; height: 20px; }
+  .logs { min-height: 96px; border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.5; }
+  .progress { height: 4px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .progress > span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .status-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 15px; }
+  .status-row .k { color: var(--muted); }
+  .pill { border-radius: 999px; padding: 2px 10px; font-weight: 700; font-size: 13px; background: var(--surface); color: var(--accent); }
+  .quick { display: flex; flex-direction: column; gap: 8px; border-radius: 16px; padding: 12px 14px; background: var(--surface); }
+  .quick h3 { margin: 0; font-size: 15px; font-weight: 800; }
+  label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+  label.field, label.date { flex-direction: column; align-items: stretch; gap: 4px; font-size: 13px; color: var(--muted); }
+  .dates { display: flex; gap: 8px; }
+  input, button.primary { font: inherit; color: var(--text); }
+  input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+  input[type="date"], input[type="text"] { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); }
+  button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; }
+  .file { display: none; }
+  .file.on { display: flex; justify-content: space-between; }
+  button.file-btn { border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); padding: 6px 12px; }
+</style>
+<div class="wrap">
+  <header>
+    <h2>Tweet deleter</h2>
+    <button class="icon" type="button" aria-label="Configurações Avançadas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M5.8 5.8l1.6 1.6M16.6 16.6l1.6 1.6M18.2 5.8l-1.6 1.6M7.4 16.6l-1.6 1.6"/></svg>
+    </button>
+  </header>
+  <div class="logs"></div>
+  <div>
+    <div class="progress"><span></span></div>
+    <div class="status-row"><span class="k">status</span> <span class="pill">idle</span></div>
+  </div>
+  <section class="quick">
+    <h3>Configurações rápidas</h3>
+    <label><input type="checkbox" data-field="fromArchive"> Do arquivo</label>
+    <label><input type="checkbox" data-field="unretweet" checked> Desfazer retweets</label>
+    <label><input type="checkbox" data-field="keepPinned" checked> Manter o fixado</label>
+    <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
+    <label><input type="checkbox" data-field="oldTweets"> Tweets antigos</label>
+    <div class="dates">
+      <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
+      <label class="date">Até <input type="date" data-field="beforeDate" value="2026-10-30"></label>
+    </div>
+    <label class="field">Palavras <input type="text" data-field="keywords"></label>
+    <label class="field">Ignorar estes IDs <input type="text" data-field="ignoreIds"></label>
+    <label class="field">Apagar só estes IDs <input type="text" data-field="onlyIds"></label>
+    <div class="file"><span>Arquivo do export</span><button class="file-btn" type="button">Escolher</button></div>
+    <button class="primary" type="button">Apagar</button>
+  </section>
+</div>`
+
+function panelMarkup() {
+    return markup
+}
+
+function mountPanel(document, view, onStart) {
+    const host = document.createElement("div")
+    host.style.cssText = "position:fixed;top:0;right:0;width:380px;height:100vh;z-index:2147483647;"
+    const shadow = host.attachShadow({ mode: "open" })
+    shadow.innerHTML = markup
+    const root = shadow.querySelector(".wrap")
+    const logs = shadow.querySelector(".logs")
+    const bar = shadow.querySelector(".progress > span")
+    const pill = shadow.querySelector(".pill")
+    const fileRow = shadow.querySelector(".file")
+    let fileText = ""
+
+    function paint() {
+        applyTheme(root, sampleTheme(document, view))
+    }
+    paint()
+    const observer = new view.MutationObserver(paint)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class"] })
+    observer.observe(document.body, { attributes: true, attributeFilter: ["style", "class"] })
+
+    shadow.querySelector("[data-field=fromArchive]").addEventListener("change", (event) => {
+        fileRow.classList.toggle("on", event.target.checked)
+    })
+    shadow.querySelector(".file-btn").addEventListener("click", () => {
+        const input = document.createElement("input")
+        input.type = "file"
+        input.onchange = () => {
+            const file = input.files && input.files[0]
+            if (!file) return
+            const reader = new view.FileReader()
+            reader.onload = () => {
+                fileText = String(reader.result || "")
+            }
+            reader.readAsText(file)
+        }
+        input.click()
+    })
+    shadow.querySelector(".primary").addEventListener("click", () => {
+        const fields = {}
+        for (const input of shadow.querySelectorAll("[data-field]")) {
+            fields[input.dataset.field] = input.type === "checkbox" ? input.checked : input.value
+        }
+        onStart(fields, fileText, panel)
+    })
+
+    const panel = {
+        log(line) {
+            const row = document.createElement("div")
+            row.textContent = line
+            logs.append(row)
+        },
+        progress({ done, total }) {
+            bar.style.width = total ? `${(done / total) * 100}%` : "0"
+        },
+        setStatus(status) {
+            pill.textContent = status
+        },
+    }
+    document.body.append(host)
+    return panel
+}
+
+
+
+
+
+
 function cookie(name) {
     const value = `; ${document.cookie}`
     const parts = value.split(`; ${name}=`)
@@ -419,75 +670,22 @@ function readEnv() {
     }
 }
 
-function waitForArchive() {
-    return new Promise((resolve) => {
-        const modal = document.createElement("div")
-        modal.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;"
-        const card = document.createElement("div")
-        card.style.cssText = "background:#fff;padding:20px;border-radius:5px;width:400px;text-align:center;"
-        const title = document.createElement("h2")
-        title.textContent = "Drop Your File Here"
-        const drop = document.createElement("div")
-        drop.textContent = "Drop your tweets.js from your Twitter Archive here"
-        drop.style.cssText = "border:2px dashed #007bff;border-radius:5px;padding:60px;cursor:pointer;"
-        const confirm = document.createElement("button")
-        confirm.textContent = "Confirm"
-        confirm.style.marginTop = "5px"
-        let text = ""
-        function take(file) {
-            const reader = new FileReader()
-            reader.onload = () => {
-                text = String(reader.result || "")
-                console.log("JSON data loaded into global variable.")
-            }
-            reader.readAsText(file)
-        }
-        drop.addEventListener("dragover", (event) => {
-            event.preventDefault()
-            drop.style.borderColor = "#0056b3"
-        })
-        drop.addEventListener("dragleave", () => {
-            drop.style.borderColor = "#007bff"
-        })
-        drop.addEventListener("drop", (event) => {
-            event.preventDefault()
-            drop.style.borderColor = "#007bff"
-            if (event.dataTransfer.files[0]) take(event.dataTransfer.files[0])
-        })
-        drop.addEventListener("click", () => {
-            const input = document.createElement("input")
-            input.type = "file"
-            input.onchange = () => {
-                if (input.files[0]) take(input.files[0])
-            }
-            input.click()
-        })
-        confirm.addEventListener("click", () => {
-            if (!text) {
-                console.error("No file loaded. Please load a file before confirming.")
-                return
-            }
-            console.log("Confirmation received. File processed.")
-            modal.remove()
-            resolve(text)
-        })
-        card.append(title, drop, confirm)
-        modal.append(card)
-        document.body.append(modal)
+mountPanel(document, window, (fields, fileText, panel) => {
+    return begin(fields, fileText, {
+        panel,
+        run(options) {
+            return runDeletion({
+                options,
+                slots: defaultSlots(),
+                env: readEnv(),
+                fetch: globalThis.fetch.bind(globalThis),
+                sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+                log: (line) => panel.log(line),
+                onProgress: (value) => panel.progress(value),
+                readArchive: async () => fileText,
+            })
+        },
     })
-}
-
-const env = readEnv()
-const options = defaultOptions()
-const slots = defaultSlots()
-await runDeletion({
-    options,
-    slots,
-    env,
-    fetch: globalThis.fetch.bind(globalThis),
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    log: (line) => console.log(line),
-    readArchive: waitForArchive,
 })
 
 })()

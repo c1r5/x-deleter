@@ -72,6 +72,7 @@ async function deleteIds(ids, ctx) {
         }
         retry = 0
         ctx.log(`${i}/${ids.length}`)
+        ctx.onProgress?.({ done: i + 1, total: ids.length })
         await ctx.sleep(100)
     }
 }

@@ -8,6 +8,10 @@ const files = [
     "src/core/select.js",
     "src/core/request.js",
     "src/core/run.js",
+    "src/ui/theme.js",
+    "src/ui/settings.js",
+    "src/ui/session.js",
+    "src/ui/panel.js",
     "src/host/console.js",
 ]
 

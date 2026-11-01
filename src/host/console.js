@@ -1,3 +1,8 @@
+import { defaultSlots } from "../core/options.js"
+import { runDeletion } from "../core/run.js"
+import { mountPanel } from "../ui/panel.js"
+import { begin } from "../ui/session.js"
+
 function cookie(name) {
     const value = `; ${document.cookie}`
     const parts = value.split(`; ${name}=`)
@@ -43,73 +48,20 @@ function readEnv() {
     }
 }
 
-function waitForArchive() {
-    return new Promise((resolve) => {
-        const modal = document.createElement("div")
-        modal.style.cssText = "position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;"
-        const card = document.createElement("div")
-        card.style.cssText = "background:#fff;padding:20px;border-radius:5px;width:400px;text-align:center;"
-        const title = document.createElement("h2")
-        title.textContent = "Drop Your File Here"
-        const drop = document.createElement("div")
-        drop.textContent = "Drop your tweets.js from your Twitter Archive here"
-        drop.style.cssText = "border:2px dashed #007bff;border-radius:5px;padding:60px;cursor:pointer;"
-        const confirm = document.createElement("button")
-        confirm.textContent = "Confirm"
-        confirm.style.marginTop = "5px"
-        let text = ""
-        function take(file) {
-            const reader = new FileReader()
-            reader.onload = () => {
-                text = String(reader.result || "")
-                console.log("JSON data loaded into global variable.")
-            }
-            reader.readAsText(file)
-        }
-        drop.addEventListener("dragover", (event) => {
-            event.preventDefault()
-            drop.style.borderColor = "#0056b3"
-        })
-        drop.addEventListener("dragleave", () => {
-            drop.style.borderColor = "#007bff"
-        })
-        drop.addEventListener("drop", (event) => {
-            event.preventDefault()
-            drop.style.borderColor = "#007bff"
-            if (event.dataTransfer.files[0]) take(event.dataTransfer.files[0])
-        })
-        drop.addEventListener("click", () => {
-            const input = document.createElement("input")
-            input.type = "file"
-            input.onchange = () => {
-                if (input.files[0]) take(input.files[0])
-            }
-            input.click()
-        })
-        confirm.addEventListener("click", () => {
-            if (!text) {
-                console.error("No file loaded. Please load a file before confirming.")
-                return
-            }
-            console.log("Confirmation received. File processed.")
-            modal.remove()
-            resolve(text)
-        })
-        card.append(title, drop, confirm)
-        modal.append(card)
-        document.body.append(modal)
+mountPanel(document, window, (fields, fileText, panel) => {
+    return begin(fields, fileText, {
+        panel,
+        run(options) {
+            return runDeletion({
+                options,
+                slots: defaultSlots(),
+                env: readEnv(),
+                fetch: globalThis.fetch.bind(globalThis),
+                sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+                log: (line) => panel.log(line),
+                onProgress: (value) => panel.progress(value),
+                readArchive: async () => fileText,
+            })
+        },
     })
-}
-
-const env = readEnv()
-const options = defaultOptions()
-const slots = defaultSlots()
-await runDeletion({
-    options,
-    slots,
-    env,
-    fetch: globalThis.fetch.bind(globalThis),
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    log: (line) => console.log(line),
-    readArchive: waitForArchive,
 })
