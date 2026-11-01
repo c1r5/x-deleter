@@ -169,6 +169,42 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     assert.equal(postsPage.url.includes("CURSOR-DE-TESTE"), false)
     assert.equal(postsPage.url.includes("111111111111111111"), false)
 
+    const curlDelete = [
+        "curl --url 'https://x.com/i/api/graphql/nxpZCY2K-I6QoFHAHeojFQ/DeleteTweet' \\",
+        "  -H 'authorization: Bearer apagar' \\",
+        "  -H 'content-type: application/json' \\",
+        "  -b 'ct0=nao-usar; auth_token=segredo; g_state={\"i_l\":0}; personalization_id=\"v1_x==\"' \\",
+        "  -H 'referer: https://x.com/conta/with_replies' \\",
+        "  -H 'sec-ch-ua-platform: \"Linux\"' \\",
+        "  -H 'x-client-transaction-id: tid-apagar-curl' \\",
+        "  -H 'x-csrf-token: csrf-colado' \\",
+        "  --data-raw '{\"variables\":{\"tweet_id\":\"222222222222222222\"},\"queryId\":\"nxpZCY2K-I6QoFHAHeojFQ\"}'",
+    ].join("\n")
+    const fromCurlDelete = parseCapturedRequest(curlDelete)
+    assert.equal(fromCurlDelete.ok, true)
+    assert.equal(fromCurlDelete.ambiguous, false)
+    assert.equal(fromCurlDelete.slotKey, "delete")
+    assert.equal(fromCurlDelete.slot.label, "Apagar tweet")
+    assert.equal(fromCurlDelete.slot.method, "POST")
+    assert.match(fromCurlDelete.slot.path, /\/nxpZCY2K-I6QoFHAHeojFQ\/DeleteTweet$/)
+    assert.equal(fromCurlDelete.slot.body.variables.tweet_id, "{{tweet_id}}")
+    assert.equal(fromCurlDelete.slot.body.variables.dark_request, undefined)
+    assert.equal(fromCurlDelete.slot.body.queryId, "nxpZCY2K-I6QoFHAHeojFQ")
+    assert.equal(fromCurlDelete.slot.transactionId, "tid-apagar-curl")
+    assert.equal(fromCurlDelete.slot.platform, "\"Linux\"")
+    assert.equal(JSON.stringify(fromCurlDelete.slot).includes("222222222222222222"), false)
+    assert.equal(JSON.stringify(fromCurlDelete.slot).includes("nao-usar"), false)
+    assert.equal(JSON.stringify(fromCurlDelete.slot).includes("segredo"), false)
+    assert.equal(JSON.stringify(fromCurlDelete.slot).includes("csrf-colado"), false)
+    assert.equal(JSON.stringify(fromCurlDelete.slot).includes("VaenaVgh5q5ih7kvyVjgtg"), false)
+    const sentDelete = requestFromSlot(fromCurlDelete.slot, { tweetId: "333" })
+    assert.equal(sentDelete.method, "POST")
+    assert.match(sentDelete.url, /\/nxpZCY2K-I6QoFHAHeojFQ\/DeleteTweet$/)
+    assert.match(sentDelete.body, /"tweet_id":"333"/)
+    assert.match(sentDelete.body, /"queryId":"nxpZCY2K-I6QoFHAHeojFQ"/)
+    assert.equal(sentDelete.body.includes("dark_request"), false)
+    assert.equal(sentDelete.body.includes("222222222222222222"), false)
+
     const fetchDelete = fetchText("https://x.com/i/api/graphql/nxpZCY2K-I6QoFHAHeojFQ/DeleteTweet", {
         headers: {
             authorization: "Bearer apagar",
@@ -228,7 +264,7 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     const panel = { log(line) { logs.push(line) } }
     const savedReplies = analyze(fetchReplies, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
     const savedOld = analyze(curlOld, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
-    const savedDelete = analyze(fetchDelete, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
+    const savedDelete = analyze(curlDelete, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
     assert.equal(savedReplies.slot.label, "Buscar respostas")
     assert.equal(savedOld.slot.label, "Buscar tweets antigos")
     assert.equal(savedDelete.slot.label, "Apagar tweet")
@@ -236,7 +272,9 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     const stored = JSON.parse(storage.getItem(configKey))
     assert.equal(stored.replies.transactionId, "tid-respostas")
     assert.equal(stored.old.transactionId, "tid-antigos")
-    assert.equal(stored.delete.transactionId, "tid-apagar")
+    assert.equal(stored.delete.transactionId, "tid-apagar-curl")
+    assert.equal(stored.delete.body.queryId, "nxpZCY2K-I6QoFHAHeojFQ")
+    assert.equal(stored.delete.body.variables.dark_request, undefined)
 
     const calls = []
     const ran = await runDeletion({
@@ -262,8 +300,11 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     assert.equal(calls[0].init.headers["x-csrf-token"], "csrf-do-cookie")
     assert.equal(calls[0].init.headers.cookie, undefined)
     assert.match(calls[0].init.body, /"tweet_id":"111"/)
+    assert.match(calls[0].init.body, /"queryId":"nxpZCY2K-I6QoFHAHeojFQ"/)
+    assert.equal(calls[0].init.body.includes("dark_request"), false)
     assert.equal(calls[0].init.body.includes("csrf-colado"), false)
-    assert.match(calls[0].url, /DeleteTweet/)
+    assert.equal(calls[0].init.body.includes("VaenaVgh5q5ih7kvyVjgtg"), false)
+    assert.match(calls[0].url, /\/nxpZCY2K-I6QoFHAHeojFQ\/DeleteTweet/)
 
     const html = panelMarkup()
     assert.match(html, /Configurações Avançadas/)
