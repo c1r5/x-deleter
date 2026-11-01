@@ -30,6 +30,8 @@ const markup = `
   .wrap:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
   .screen { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; gap: 12px; overflow: auto; }
   .screen.on { display: flex; }
+  .screen.main.on { flex: 0 1 auto; overflow: hidden; }
+  .screen.main.on .quick { flex: 1 1 auto; min-height: 0; overflow: auto; }
   header { display: flex; align-items: center; justify-content: space-between; min-height: 53px; }
   h2 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.2; min-width: 0; }
   button.icon { width: 34px; height: 34px; border: 0; border-radius: 999px; background: transparent; color: var(--text); transition: background-color 0.2s ease; }
@@ -48,6 +50,7 @@ const markup = `
   .quick, .setup { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--edge); border-radius: 16px; padding: 12px 14px; background: var(--surface); transition: background-color 0.2s ease; }
   .quick:hover, .setup:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
   .quick h3 { margin: 0; font-size: 15px; font-weight: 800; }
+  .quick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .marks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; max-height: calc(3 * 24px + 16px); overflow-y: auto; }
   .marks label { min-width: 0; min-height: 24px; }
   label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
@@ -63,9 +66,7 @@ const markup = `
   button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; transition: background-color 0.2s ease; }
   button.primary:hover { background: color-mix(in srgb, var(--btn-text) 12%, var(--btn-bg)); }
   button.primary:disabled { opacity: 0.6; }
-  button.file-btn { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; border: 1px solid var(--edge); border-radius: 999px; background: var(--bg); color: var(--text); padding: 6px 12px; font: inherit; transition: background-color 0.2s ease; }
-  button.file-btn svg { width: 18px; height: 18px; flex: none; }
-  button.file-btn:hover { background: color-mix(in srgb, var(--text) 8%, var(--bg)); }
+  button.icon.on { color: var(--accent); }
   ul.setup { list-style: none; margin: 0; padding: 0; }
   ul.setup li { display: flex; align-items: center; gap: 10px; font-size: 15px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
   button.name { border: 0; background: transparent; color: var(--accent); font-weight: 700; font-size: 15px; padding: 0; }
@@ -85,7 +86,10 @@ const markup = `
       </button>
     </header>
     <section class="quick">
-      <h3>Configurações rápidas</h3>
+      <div class="quick-head">
+        <h3>Configurações rápidas</h3>
+        <button class="icon" type="button" data-action="import" aria-label="Importar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16.5V19a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2.5"/></svg></button>
+      </div>
       <div class="marks">
         <label><input type="checkbox" data-field="keepPinned" checked> Manter o fixado</label>
         <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
@@ -97,7 +101,6 @@ const markup = `
       <label class="field">Palavras <input type="text" data-field="keywords"></label>
       <label class="field">Ignorar estes IDs <input type="text" data-field="ignoreIds"></label>
       <label class="field">Apagar só estes IDs <input type="text" data-field="onlyIds"></label>
-      <button class="file-btn" type="button" data-action="import" aria-label="Importar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16.5V19a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2.5"/></svg><span class="import-label">Importar</span></button>
       <button class="primary" type="button">Buscar</button>
     </section>
   </section>
@@ -246,14 +249,17 @@ export function mountPanel(document, view, handlers) {
             const reader = new view.FileReader()
             reader.onload = () => {
                 fileText = String(reader.result || "")
-                const label = shadow.querySelector(".import-label")
-                if (label) label.textContent = file.name || "Importar"
+                const button = shadow.querySelector("[data-action=import]")
+                if (button) {
+                    button.classList.toggle("on", Boolean(fileText))
+                    button.title = file.name || "Importar"
+                }
             }
             reader.readAsText(file)
         }
         input.click()
     })
-    shadow.querySelector("button.icon").addEventListener("click", () => show("advanced"))
+    shadow.querySelector('[aria-label="Configurações Avançadas"]').addEventListener("click", () => show("advanced"))
     shadow.querySelector("[data-action=back-main]").addEventListener("click", (event) => {
         event.preventDefault()
         show("main")

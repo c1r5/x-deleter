@@ -47,7 +47,9 @@ O transaction id expira. Quando o X recusa a chamada, o log mostra o status HTTP
 
 Buscar usa o que está preenchido nessa hora.
 
-Importar lê um `tweets.js` do export da conta. O botão traz um ícone de upload. Com um arquivo escolhido, a busca seguinte usa esse arquivo. Sem arquivo, a busca percorre as timelines que já têm transaction id. Se a busca pede arquivo e o texto não chegou, o log diz `falta o tweets.js` e o status fica `fail`.
+O ícone de upload fica no canto superior direito da caixa e lê um `tweets.js` do export da conta. Com um arquivo escolhido, o ícone fica na cor do link e a busca seguinte usa esse arquivo. Sem arquivo, a busca percorre as timelines que já têm transaction id. Se a busca pede arquivo e o texto não chegou, o log diz `falta o tweets.js` e o status fica `fail`.
+
+A barra de progresso, o status e os logs ficam em seguida, colados nessa caixa. Nas outras telas eles continuam no rodapé.
 
 Manter o fixado vem ligado e tira o tweet que a página marca como fixado. Essa detecção falha. Para garantir, ponha o id em Ignorar estes IDs.
 
@@ -71,4 +73,4 @@ Executar fica no canto inferior esquerdo do modal e só liga quando a busca term
 
 O log dessas etapas leva emoji: 🔎 busca, ➕ linha, ▶️ ação, 💥 Nuke, ⏳ espera, ✅ item, ⚠️ nova tentativa, ❌ falha, 🏁 fim.
 
-O painel usa a coluna da direita do X. A largura muda com a janela, no mesmo ponto em que o X muda essa coluna.
+O painel usa a coluna da direita do X. A largura muda com a janela, no mesmo ponto em que o X muda essa coluna. Os logs ficam à mostra em qualquer tela.
