@@ -124,6 +124,9 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.match(html, /Configurações rápidas/)
     assert.match(html, />Apagar</)
     assert.match(html, /width: 100%/)
+    assert.match(html, /--edge: color-mix/)
+    assert.match(html, /\.wrap:hover/)
+    assert.match(html, /\.quick:hover, \.setup:hover/)
     assert.equal(html.includes("width: 380px"), false)
     assert.equal(html.includes("Drop Your File Here"), false)
 

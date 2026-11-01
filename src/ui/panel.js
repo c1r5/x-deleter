@@ -8,8 +8,8 @@ const chevron = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const markup = `
 <style>
   :host { all: initial; }
-  :host([data-place="primary"]) .wrap { border-left: 0; }
   .wrap {
+    --edge: color-mix(in srgb, var(--text) 22%, var(--bg));
     box-sizing: border-box;
     width: 100%;
     height: 100%;
@@ -22,24 +22,29 @@ const markup = `
     background: var(--bg);
     color: var(--text);
     color-scheme: var(--scheme);
-    border-left: 1px solid var(--line);
+    border: 1px solid var(--edge);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: background-color 0.2s ease;
   }
+  .wrap:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
   .screen { display: none; flex-direction: column; gap: 12px; }
   .screen.on { display: flex; }
   header { display: flex; align-items: center; justify-content: space-between; min-height: 53px; }
   h2 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.2; min-width: 0; }
-  button.icon { width: 34px; height: 34px; border: 0; border-radius: 999px; background: transparent; color: var(--text); }
+  button.icon { width: 34px; height: 34px; border: 0; border-radius: 999px; background: transparent; color: var(--text); transition: background-color 0.2s ease; }
+  button.icon:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
   button.icon svg { width: 20px; height: 20px; }
   a.back { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); text-decoration: none; font-weight: 400; font-size: 17px; }
   a.back svg { width: 22px; height: 22px; flex: none; }
-  .logs { min-height: 96px; border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.5; }
+  .logs { min-height: 96px; border: 1px solid var(--edge); border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.5; transition: background-color 0.2s ease; }
+  .logs:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
   .progress { height: 4px; border-radius: 999px; background: var(--line); overflow: hidden; }
   .progress > span { display: block; height: 100%; width: 0; background: var(--accent); }
   .status-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 15px; }
   .status-row .k { color: var(--muted); }
-  .pill { border-radius: 999px; padding: 2px 10px; font-weight: 700; font-size: 13px; background: var(--surface); color: var(--accent); }
-  .quick, .setup { display: flex; flex-direction: column; gap: 8px; border-radius: 16px; padding: 12px 14px; background: var(--surface); }
+  .pill { border: 1px solid var(--edge); border-radius: 999px; padding: 2px 10px; font-weight: 700; font-size: 13px; background: var(--surface); color: var(--accent); }
+  .quick, .setup { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--edge); border-radius: 16px; padding: 12px 14px; background: var(--surface); transition: background-color 0.2s ease; }
+  .quick:hover, .setup:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
   .quick h3 { margin: 0; font-size: 15px; font-weight: 800; }
   label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
   label.field, label.date { flex-direction: column; align-items: stretch; gap: 4px; font-size: 13px; color: var(--muted); }
@@ -47,17 +52,22 @@ const markup = `
   .dates .date { flex: 1 1 9rem; min-width: 0; }
   input, button.primary, textarea { font: inherit; color: var(--text); }
   input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
-  input[type="date"], input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); }
-  textarea.curl { min-height: 120px; border: 0; border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; }
-  button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; }
+  input[type="date"], input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid var(--edge); border-radius: 4px; padding: 8px 10px; background: var(--bg); transition: background-color 0.2s ease; }
+  input[type="date"]:hover, input[type="text"]:hover { background: color-mix(in srgb, var(--text) 8%, var(--bg)); }
+  textarea.curl { min-height: 120px; border: 1px solid var(--edge); border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; transition: background-color 0.2s ease; }
+  textarea.curl:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
+  button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; transition: background-color 0.2s ease; }
+  button.primary:hover { background: color-mix(in srgb, var(--btn-text) 12%, var(--btn-bg)); }
   .file { display: none; }
   .file.on { display: flex; justify-content: space-between; }
-  button.file-btn { border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--text); padding: 6px 12px; }
+  button.file-btn { border: 1px solid var(--edge); border-radius: 999px; background: var(--bg); color: var(--text); padding: 6px 12px; transition: background-color 0.2s ease; }
+  button.file-btn:hover { background: color-mix(in srgb, var(--text) 8%, var(--bg)); }
   ul.setup { list-style: none; margin: 0; padding: 0; }
-  ul.setup li { display: flex; align-items: center; gap: 10px; font-size: 15px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  ul.setup li { display: flex; align-items: center; gap: 10px; font-size: 15px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
   button.name { border: 0; background: transparent; color: var(--accent); font-weight: 700; font-size: 15px; padding: 0; }
   .hint { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
-  select, textarea.box { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); width: 100%; box-sizing: border-box; }
+  select, textarea.box { border: 1px solid var(--edge); border-radius: 4px; padding: 8px 10px; background: var(--bg); width: 100%; box-sizing: border-box; transition: background-color 0.2s ease; }
+  select:hover, textarea.box:hover { background: color-mix(in srgb, var(--text) 8%, var(--bg)); }
   textarea.box { font-family: ui-monospace, monospace; font-size: 12.5px; }
   ul.candidates { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
   .actions { display: flex; gap: 8px; }
