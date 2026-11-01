@@ -157,6 +157,7 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.match(html, /data-action="import" aria-label="Importar"/)
     assert.equal(html.includes("import-label"), false)
     assert.equal(html.includes(">Importar<"), false)
+    assert.match(html, /\.screen \{[^}]*flex: 0 1 auto/)
     assert.match(html, /\.screen\.main\.on \{[^}]*flex: 0 1 auto/)
     assert.equal(html.includes("Do arquivo"), false)
     assert.equal(html.includes("Desfazer retweets"), false)

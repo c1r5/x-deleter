@@ -49,7 +49,7 @@ Buscar usa o que está preenchido nessa hora.
 
 O ícone de upload fica no canto superior direito da caixa e lê um `tweets.js` do export da conta. Com um arquivo escolhido, o ícone fica na cor do link e a busca seguinte usa esse arquivo. Sem arquivo, a busca percorre as timelines que já têm transaction id. Se a busca pede arquivo e o texto não chegou, o log diz `falta o tweets.js` e o status fica `fail`.
 
-A barra de progresso, o status e os logs ficam em seguida, colados nessa caixa. Nas outras telas eles continuam no rodapé.
+A barra de progresso, o status e os logs ficam em seguida, colados no conteúdo. Em Configurações Avançadas e no preenchimento manual, a posição é a mesma.
 
 Manter o fixado vem ligado e tira o tweet que a página marca como fixado. Essa detecção falha. Para garantir, ponha o id em Ignorar estes IDs.
 

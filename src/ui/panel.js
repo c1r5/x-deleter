@@ -28,7 +28,7 @@ const markup = `
     transition: background-color 0.2s ease;
   }
   .wrap:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
-  .screen { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; gap: 12px; overflow: auto; }
+  .screen { display: none; flex: 0 1 auto; min-height: 0; flex-direction: column; gap: 12px; overflow: auto; }
   .screen.on { display: flex; }
   .screen.main.on { flex: 0 1 auto; overflow: hidden; }
   .screen.main.on .quick { flex: 1 1 auto; min-height: 0; overflow: auto; }
