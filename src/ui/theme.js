@@ -22,21 +22,20 @@ export function themeFrom(sample) {
     }
 }
 
+function painted(color) {
+    if (!color || color === "transparent" || color === "rgba(0, 0, 0, 0)") return ""
+    return color
+}
+
 export function sampleTheme(document, view) {
     const body = view.getComputedStyle(document.body)
     const link = document.querySelector("a[href]")
     const accent = link ? view.getComputedStyle(link).color : ""
-    let surface = body.backgroundColor
-    let border = body.borderTopColor
-    const nodes = document.querySelectorAll("div, article, section")
-    const limit = Math.min(nodes.length, 200)
-    for (let i = 0; i < limit; i++) {
-        const style = view.getComputedStyle(nodes[i])
-        if (surface === body.backgroundColor && style.backgroundColor && style.backgroundColor !== "rgba(0, 0, 0, 0)" && style.backgroundColor !== body.backgroundColor) {
-            surface = style.backgroundColor
-        }
-        if (style.borderTopColor && style.borderTopColor !== "rgba(0, 0, 0, 0)") border = style.borderTopColor
-    }
+    const column = document.querySelector('[data-testid="sidebarColumn"]')
+        || document.querySelector('[data-testid="primaryColumn"]')
+    const columnStyle = column ? view.getComputedStyle(column) : null
+    const surface = painted(columnStyle && columnStyle.backgroundColor) || body.backgroundColor
+    const border = painted(columnStyle && columnStyle.borderTopColor) || body.borderTopColor
     const declared = document.documentElement.style.colorScheme
     const scheme = declared === "dark" || declared === "light" ? declared : (isDark(body.backgroundColor) ? "dark" : "light")
     return themeFrom({

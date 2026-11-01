@@ -70,6 +70,34 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.equal(dark.scheme, "dark")
     assert.equal(dark.bg, "rgb(0, 0, 0)")
 
+    const post = { backgroundColor: "rgb(29, 155, 240)", borderTopColor: "rgba(0, 0, 0, 0)" }
+    const column = { backgroundColor: "rgba(0, 0, 0, 0)", borderTopColor: "rgb(47, 51, 54)" }
+    const xPage = {
+        body: {
+            backgroundColor: "rgb(0, 0, 0)",
+            color: "rgb(231, 233, 234)",
+            borderTopColor: "rgb(47, 51, 54)",
+        },
+        documentElement: { style: { colorScheme: "dark" } },
+        querySelector(selector) {
+            if (selector === "a[href]") return { href: "/" }
+            if (selector === '[data-testid="sidebarColumn"]') return column
+            return null
+        },
+        querySelectorAll: () => [post],
+    }
+    const xTheme = sampleTheme(xPage, {
+        getComputedStyle(node) {
+            if (node && node.href) return { color: "rgb(29, 155, 240)" }
+            if (node === column || node === post) return node
+            return xPage.body
+        },
+    })
+    assert.equal(xTheme.bg, "rgb(0, 0, 0)")
+    assert.equal(xTheme.surface, "rgb(0, 0, 0)")
+    assert.equal(xTheme.accent, "rgb(29, 155, 240)")
+    assert.equal(xTheme.line, "rgb(47, 51, 54)")
+
     const seen = []
     const panel = {
         log(line) { seen.push(line) },
