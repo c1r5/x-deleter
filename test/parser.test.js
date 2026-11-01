@@ -6,6 +6,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { defaultOptions } from "../src/core/options.js"
 import { parseCapturedRequest } from "../src/core/parse.js"
+import { requestFromSlot } from "../src/core/request.js"
 import { runDeletion } from "../src/core/run.js"
 import { configKey, loadSlots, saveSlot } from "../src/host/storage.js"
 import { analyze } from "../src/ui/capture.js"
@@ -62,6 +63,47 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     assert.equal(JSON.stringify(replies.slot).includes("nao-usar"), false)
     assert.equal(JSON.stringify(replies.slot).includes("csrf-colado"), false)
     assert.equal(JSON.stringify(replies.slot).includes("user-agent"), false)
+    assert.equal(replies.slot.fieldToggles, null)
+
+    const replyVariables = {
+        userId: "111111111111111111",
+        count: 20,
+        includePromotedContent: true,
+        withCommunity: true,
+        withVoice: true,
+    }
+    const replyFeatures = { rweb_video_screen_enabled: false, verified_phone_label_enabled: false }
+    const replyToggles = { withPayments: false, withArticlePlainText: false }
+    const replyUrl = `https://x.com/i/api/graphql/e2U1WlALwVhjkDBJnkcLnA/UserRepliesTimeline?${query(replyVariables, replyFeatures)}&fieldToggles=${encodeURIComponent(JSON.stringify(replyToggles))}`
+    const curlReplies = [
+        `curl --url '${replyUrl}' \\`,
+        "  -H 'accept: */*' \\",
+        "  -H 'authorization: Bearer teste' \\",
+        "  -H 'content-type: application/json' \\",
+        "  -b 'ct0=nao-usar; auth_token=segredo' \\",
+        "  -H 'user-agent: Mozilla/5.0' \\",
+        "  -H 'x-client-transaction-id: tid-url' \\",
+        "  -H 'x-csrf-token: csrf-colado' \\",
+        "  -H 'x-twitter-active-user: yes'",
+    ].join("\n")
+    const fromUrl = parseCapturedRequest(curlReplies)
+    assert.equal(fromUrl.ok, true)
+    assert.equal(fromUrl.ambiguous, false)
+    assert.equal(fromUrl.slotKey, "replies")
+    assert.equal(fromUrl.slot.label, "Buscar respostas")
+    assert.equal(fromUrl.slot.variables.userId, "{{user_id}}")
+    assert.equal(fromUrl.slot.transactionId, "tid-url")
+    assert.deepEqual(fromUrl.slot.fieldToggles, replyToggles)
+    assert.equal(fromUrl.slot.features.rweb_video_screen_enabled, false)
+    assert.equal(JSON.stringify(fromUrl.slot).includes("nao-usar"), false)
+    assert.equal(JSON.stringify(fromUrl.slot).includes("auth_token"), false)
+    assert.equal(JSON.stringify(fromUrl.slot).includes("csrf-colado"), false)
+    const sent = requestFromSlot(fromUrl.slot, { userId: "42" })
+    assert.match(sent.url, /UserRepliesTimeline/)
+    assert.match(sent.url, /fieldToggles=/)
+    assert.match(sent.url, /%22userId%22%3A%2242%22/)
+    assert.equal(sent.url.includes("111111111111111111"), false)
+    assert.equal(sent.url.includes("nao-usar"), false)
 
     const oldUrl = `https://x.com/i/api/graphql/QUERYID/UserTweets?${query({
         userId: "99",

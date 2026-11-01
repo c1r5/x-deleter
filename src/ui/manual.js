@@ -54,6 +54,7 @@ export function slotFromForm(slotKey, form, previous) {
         path: form.path,
         variables,
         features,
+        fieldToggles: search ? (previous.fieldToggles ?? null) : null,
         body,
         contentType: form.contentType || previous.contentType || "application/json",
         successStatus: Number(form.successStatus || previous.successStatus || 200),

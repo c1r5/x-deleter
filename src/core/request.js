@@ -95,6 +95,7 @@ export function requestFromSlot(slot, ctx) {
         const parts = []
         if (slot.variables) parts.push(`variables=${encodeURIComponent(JSON.stringify(applyValue(slot.variables, filled)))}`)
         if (slot.features) parts.push(`features=${encodeURIComponent(JSON.stringify(applyValue(slot.features, filled)))}`)
+        if (slot.fieldToggles) parts.push(`fieldToggles=${encodeURIComponent(JSON.stringify(applyValue(slot.fieldToggles, filled)))}`)
         if (parts.length) url += `?${parts.join("&")}`
         return { url, method: "GET", body: null }
     }

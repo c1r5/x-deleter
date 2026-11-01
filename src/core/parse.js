@@ -89,6 +89,7 @@ function finish(urlString, options) {
     const headers = headerMap(options.headers)
     let variables = null
     let features = null
+    let fieldToggles = null
     if (url.searchParams.has("variables")) {
         try {
             variables = JSON.parse(url.searchParams.get("variables"))
@@ -99,6 +100,13 @@ function finish(urlString, options) {
     if (url.searchParams.has("features")) {
         try {
             features = JSON.parse(url.searchParams.get("features"))
+        } catch {
+            return { ok: false, error: "json_invalido" }
+        }
+    }
+    if (url.searchParams.has("fieldToggles")) {
+        try {
+            fieldToggles = JSON.parse(url.searchParams.get("fieldToggles"))
         } catch {
             return { ok: false, error: "json_invalido" }
         }
@@ -117,6 +125,7 @@ function finish(urlString, options) {
     const candidates = []
     collect(variables, "variables", candidates)
     collect(features, "features", candidates)
+    collect(fieldToggles, "fieldToggles", candidates)
     collect(body, "body", candidates)
     path.split("/").forEach((segment, index) => {
         if (isSnowflake(segment)) candidates.push(`caminho[${index}]`)
@@ -136,6 +145,7 @@ function finish(urlString, options) {
             path,
             variables: ambiguous || !variables ? variables : substitute(variables),
             features: ambiguous || !features ? features : substitute(features),
+            fieldToggles: ambiguous || !fieldToggles ? fieldToggles : substitute(fieldToggles),
             body: ambiguous || !body ? body : substitute(body),
             contentType: headers["content-type"] || "application/json",
             successStatus: 200,
@@ -167,8 +177,8 @@ function parseFetch(text) {
 function parseCurl(text) {
     const unfolded = text.replace(/\\\r?\n/g, " ")
     if (!/^\s*curl\b/.test(unfolded)) return { ok: false, error: "formato_nao_reconhecido" }
-    const urlMatch = unfolded.match(/curl\s+'([^']*)'|curl\s+"([^"]*)"/)
-    const url = urlMatch ? (urlMatch[1] ?? urlMatch[2]) : ""
+    const urlMatch = unfolded.match(/--url\s+'([^']*)'|--url\s+"([^"]*)"|\bcurl\s+'([^']*)'|\bcurl\s+"([^"]*)"/)
+    const url = urlMatch ? (urlMatch[1] ?? urlMatch[2] ?? urlMatch[3] ?? urlMatch[4]) : ""
     if (!url) return { ok: false, error: "url_ausente" }
     const headers = {}
     const headerPattern = /-H\s+'([^']*)'|-H\s+"([^"]*)"/g
