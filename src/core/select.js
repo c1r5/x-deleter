@@ -51,8 +51,25 @@ function passesArchive(tweet, options, signal) {
     return keywordsMatch(tweet.text, options.keywords) && dateMatches(tweet.date, options, signal)
 }
 
+function kindOf(text, legacy) {
+    if (String(text).startsWith("RT ") || legacy.retweeted === true) return "repost"
+    if (legacy.in_reply_to_status_id_str) return "reply"
+    return "post"
+}
+
+function viewOf(tweet) {
+    const legacy = tweet.legacy || {}
+    const text = legacy.full_text || ""
+    return {
+        id: String(tweet.id_str || legacy.id_str),
+        type: kindOf(text, legacy),
+        text,
+        date: legacy.created_at || "",
+    }
+}
+
 export function collectTimeline(root, options, userId) {
-    const ids = []
+    const tweets = []
     const signal = { stop: false }
 
     function recurse(current) {
@@ -62,11 +79,11 @@ export function collectTimeline(root, options, userId) {
         if (current.__typename === "TweetWithVisibilityResults" && current.tweet
             && ownsTweet(current.tweet, userId, options.unretweet)
             && passesTimeline(current.tweet, options, signal)) {
-            ids.push(current.tweet.id_str || current.tweet.legacy.id_str)
+            tweets.push(viewOf(current.tweet))
         } else if (current.__typename === "Tweet"
             && ownsTweet(current, userId, options.unretweet)
             && passesTimeline(current, options, signal)) {
-            ids.push(current.id_str || current.legacy.id_str)
+            tweets.push(viewOf(current))
         }
 
         for (const key in current) {
@@ -75,11 +92,11 @@ export function collectTimeline(root, options, userId) {
     }
 
     recurse(root)
-    return { ids, stop: signal.stop }
+    return { tweets, ids: tweets.map((tweet) => tweet.id), stop: signal.stop }
 }
 
 export function collectArchive(data, options, userId) {
-    const ids = []
+    const tweets = []
     const signal = { stop: false }
     for (const item of data) {
         if (!item.tweet || !item.tweet.id_str) continue
@@ -91,9 +108,16 @@ export function collectArchive(data, options, userId) {
             text: item.tweet.full_text,
             date: item.tweet.created_at,
         }
-        if (!replyToSelf && rtOk && passesArchive(tweet, options, signal)) ids.push(item.tweet.id_str)
+        if (!replyToSelf && rtOk && passesArchive(tweet, options, signal)) {
+            tweets.push({
+                id: item.tweet.id_str,
+                type: kindOf(item.tweet.full_text, item.tweet),
+                text: item.tweet.full_text,
+                date: item.tweet.created_at || "",
+            })
+        }
     }
-    return { ids, stop: signal.stop }
+    return { tweets, ids: tweets.map((tweet) => tweet.id), stop: signal.stop }
 }
 
 export function parseArchiveText(content) {
@@ -111,16 +135,16 @@ export function entriesFromPayload(data) {
 }
 
 export function scanEntries(entries, options, userId) {
-    const ids = []
+    const tweets = []
     let stop = false
     for (const item of entries) {
         if (item.entryId.startsWith("profile-conversation") || item.entryId.startsWith("tweet-")) {
             const found = collectTimeline(item, options, userId)
-            ids.push(...found.ids)
+            tweets.push(...found.tweets)
             if (found.stop) stop = true
         } else if (item.entryId.startsWith("cursor-bottom") && entries.length > 2) {
-            return { ids, stop, cursor: item.content.value }
+            return { tweets, ids: tweets.map((tweet) => tweet.id), stop, cursor: item.content.value }
         }
     }
-    return { ids, stop, cursor: "finished" }
+    return { tweets, ids: tweets.map((tweet) => tweet.id), stop, cursor: "finished" }
 }

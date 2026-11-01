@@ -6,7 +6,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { defaultOptions, defaultSlots } from "../src/core/options.js"
 import { deleteBody, deleteUrl, timelineUrl } from "../src/core/request.js"
-import { runDeletion } from "../src/core/run.js"
+import { runDeletion, runSearch } from "../src/core/run.js"
 import { collectTimeline, parseArchiveText } from "../src/core/select.js"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
@@ -21,6 +21,7 @@ function legacy(id, text, extra = {}) {
         user_id_str: extra.user_id_str || userId,
         entities: { urls: extra.urls || [] },
         retweeted: Boolean(extra.retweeted),
+        in_reply_to_status_id_str: extra.in_reply_to_status_id_str || "",
     }
 }
 
@@ -124,6 +125,10 @@ test("percorre a timeline, o arquivo e apaga", async () => {
     assert.equal(missing.missing, "Buscar respostas")
     assert.equal(calls.length, 0)
     assert.match(logs.at(-1), /Buscar respostas/)
+    const missingSearch = await runSearch(ctx)
+    assert.equal(missingSearch.status, "fail")
+    assert.deepEqual(missingSearch.tweets, [])
+    assert.equal(calls.length, 0)
 
     calls = []
     logs.length = 0
@@ -142,6 +147,59 @@ test("percorre a timeline, o arquivo e apaga", async () => {
     assert.match(deleted[0], /VaenaVgh5q5ih7kvyVjgtg/)
     assert.equal(deleted[0].includes("nxpZCY2K"), false)
     assert.match(calls.find((call) => call.init.method === "POST").url, /nxpZCY2K-I6QoFHAHeojFQ/)
+
+    calls = []
+    const found = []
+    const searched = await runSearch({
+        ...ctx,
+        options,
+        fetch: async (url, init) => {
+            calls.push({ url, init })
+            return { ok: true, status: 200, json: async () => page(entries) }
+        },
+        onTweet(tweet) { found.push(tweet) },
+    })
+    assert.equal(searched.status, "done")
+    assert.deepEqual(found.map((tweet) => tweet.id), ["111", "666", "888"])
+    assert.equal(found[0].type, "post")
+    assert.equal(found[0].text, "sol na praia")
+    assert.equal(found[1].type, "repost")
+    assert.equal(found[2].type, "post")
+    assert.equal(calls.some((call) => call.init.method === "POST"), false)
+
+    calls = []
+    const listed = await runSearch({
+        ...ctx,
+        options: { ...options, onlyIds: ["111", ""] },
+        fetch: async () => { throw new Error("nao buscar") },
+    })
+    assert.deepEqual(listed.tweets, [{ id: "111", type: "post", text: "", date: "" }])
+
+    calls = []
+    const replies = []
+    const replySearch = await runSearch({
+        ...ctx,
+        options,
+        fetch: async (url, init) => {
+            calls.push({ url, init })
+            return { ok: true, status: 200, json: async () => page([tweetEntry("901", "sol resposta", { in_reply_to_status_id_str: "50" })]) }
+        },
+        onTweet(tweet) { replies.push(tweet) },
+    })
+    assert.equal(replySearch.status, "done")
+    assert.equal(replies[0].type, "reply")
+    assert.equal(calls.some((call) => call.init.method === "POST"), false)
+
+    let ready = 0
+    const halted = await runSearch({
+        ...ctx,
+        options,
+        isStopped: () => true,
+        onReady() { ready += 1 },
+        fetch: async () => { throw new Error("nao buscar") },
+    })
+    assert.equal(ready, 1)
+    assert.deepEqual(halted.tweets, [])
 
     const hidden = collectTimeline(tweetEntry("666", "sol rt", { retweeted: true }), {
         ...options,

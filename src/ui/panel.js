@@ -103,7 +103,7 @@ const markup = `
       <label class="field">Ignorar estes IDs <input type="text" data-field="ignoreIds"></label>
       <label class="field">Apagar só estes IDs <input type="text" data-field="onlyIds"></label>
       <div class="file"><span>Arquivo do export</span><button class="file-btn" type="button">Escolher</button></div>
-      <button class="primary" type="button">Apagar</button>
+      <button class="primary" type="button">Buscar</button>
     </section>
   </section>
   <section class="screen advanced" data-screen="advanced">

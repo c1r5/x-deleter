@@ -86,6 +86,63 @@ async function deleteIds(ids, ctx) {
     }
 }
 
+function missingSearchSlot(options, slots) {
+    if (activeIds(options.onlyIds).length > 0 || options.fromArchive) return null
+    const slot = listSlot(options, slots)
+    if (!slot.transactionId) return slot
+    return null
+}
+
+async function walkTimeline(ctx, push) {
+    const slot = listSlot(ctx.options, ctx.slots)
+    let cursor = null
+    let stop = false
+    while (cursor !== "finished" && !stop) {
+        if (ctx.isStopped?.()) return
+        const built = requestFromSlot(slot, { userId: ctx.env.userId, cursor })
+        const data = await fetchJson(built.url, {
+            headers: headersFor(slot, ctx),
+            referrer: referrerFor(slot, ctx.env.username),
+            referrerPolicy: "strict-origin-when-cross-origin",
+            body: null,
+            method: "GET",
+            mode: "cors",
+            credentials: "include",
+        }, ctx, "fetch_tweets", 5)
+        const scanned = scanEntries(entriesFromPayload(data), ctx.options, ctx.env.userId)
+        for (const tweet of scanned.tweets) push(tweet)
+        cursor = scanned.cursor
+        stop = scanned.stop
+        if (cursor !== "finished" && !stop) await ctx.sleep(3000)
+    }
+}
+
+export async function runSearch(ctx) {
+    const missing = missingSearchSlot(ctx.options, ctx.slots)
+    if (missing) {
+        ctx.log(`falta o transaction id em ${missing.label}`)
+        return { status: "fail", missing: missing.label, tweets: [] }
+    }
+    ctx.onReady?.()
+    const tweets = []
+    const push = (tweet) => {
+        tweets.push(tweet)
+        ctx.onTweet?.(tweet)
+    }
+    if (ctx.options.fromArchive) {
+        const text = await ctx.readArchive()
+        const found = collectArchive(parseArchiveText(text), ctx.options, ctx.env.userId)
+        for (const tweet of found.tweets) push(tweet)
+    } else {
+        const only = activeIds(ctx.options.onlyIds)
+        if (only.length === 0) await walkTimeline(ctx, push)
+        else {
+            for (const id of only) push({ id, type: "post", text: "", date: "" })
+        }
+    }
+    return { status: "done", tweets }
+}
+
 async function deleteTimeline(ctx) {
     const slot = listSlot(ctx.options, ctx.slots)
     let cursor = null

@@ -6,6 +6,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { optionsFromFields } from "../src/ui/settings.js"
 import { begin } from "../src/ui/session.js"
+import { modalMarkup, showDate } from "../src/ui/modal.js"
 import { panelMarkup, showAnalyze } from "../src/ui/panel.js"
 import { attachPanel } from "../src/ui/place.js"
 import { isDark, sampleTheme } from "../src/ui/theme.js"
@@ -122,7 +123,14 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     const html = panelMarkup()
     assert.match(html, /Tweet deleter/)
     assert.match(html, /Configurações rápidas/)
-    assert.match(html, />Apagar</)
+    assert.match(html, />Buscar</)
+    assert.equal(html.includes(">Apagar<"), false)
+    const modal = modalMarkup()
+    assert.match(modal, /Tweets encontrados/)
+    assert.match(modal, />Fechar</)
+    assert.match(modal, /position:\s*fixed/)
+    assert.equal(showDate("Mon Jun 15 12:00:00 +0000 2020"), "15/06/2020")
+    assert.equal(showDate(""), "")
     assert.match(html, /width: 100%/)
     assert.match(html, /--edge: color-mix/)
     assert.match(html, /\.wrap:hover/)

@@ -67,7 +67,7 @@ Apagar só estes IDs não percorre a timeline e apaga essa lista. Nesse modo, e 
 
 ## O lote
 
-Apagar muda o status para `deleting`. A barra é o lote atual. No fim, o status fica `done`. `fail` cobre slot sem transaction id, arquivo ausente ou tentativas esgotadas.
+Buscar muda o status para `buscando` e abre a lista no centro da tela. As linhas entram conforme a página chega, já marcadas. Fechar interrompe a busca. Essa ação não apaga. Sem transaction id no slot de busca, o modal não abre e o log diz qual slot falta. No fim da busca o status fica `done`. `fail` cobre slot sem transaction id, arquivo ausente ou tentativas esgotadas.
 
 No status 429 o log avisa e a espera é de 1 minuto. Outro erro HTTP espera e tenta de novo.
 

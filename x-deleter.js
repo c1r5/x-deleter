@@ -98,8 +98,25 @@ function passesArchive(tweet, options, signal) {
     return keywordsMatch(tweet.text, options.keywords) && dateMatches(tweet.date, options, signal)
 }
 
+function kindOf(text, legacy) {
+    if (String(text).startsWith("RT ") || legacy.retweeted === true) return "repost"
+    if (legacy.in_reply_to_status_id_str) return "reply"
+    return "post"
+}
+
+function viewOf(tweet) {
+    const legacy = tweet.legacy || {}
+    const text = legacy.full_text || ""
+    return {
+        id: String(tweet.id_str || legacy.id_str),
+        type: kindOf(text, legacy),
+        text,
+        date: legacy.created_at || "",
+    }
+}
+
 function collectTimeline(root, options, userId) {
-    const ids = []
+    const tweets = []
     const signal = { stop: false }
 
     function recurse(current) {
@@ -109,11 +126,11 @@ function collectTimeline(root, options, userId) {
         if (current.__typename === "TweetWithVisibilityResults" && current.tweet
             && ownsTweet(current.tweet, userId, options.unretweet)
             && passesTimeline(current.tweet, options, signal)) {
-            ids.push(current.tweet.id_str || current.tweet.legacy.id_str)
+            tweets.push(viewOf(current.tweet))
         } else if (current.__typename === "Tweet"
             && ownsTweet(current, userId, options.unretweet)
             && passesTimeline(current, options, signal)) {
-            ids.push(current.id_str || current.legacy.id_str)
+            tweets.push(viewOf(current))
         }
 
         for (const key in current) {
@@ -122,11 +139,11 @@ function collectTimeline(root, options, userId) {
     }
 
     recurse(root)
-    return { ids, stop: signal.stop }
+    return { tweets, ids: tweets.map((tweet) => tweet.id), stop: signal.stop }
 }
 
 function collectArchive(data, options, userId) {
-    const ids = []
+    const tweets = []
     const signal = { stop: false }
     for (const item of data) {
         if (!item.tweet || !item.tweet.id_str) continue
@@ -138,9 +155,16 @@ function collectArchive(data, options, userId) {
             text: item.tweet.full_text,
             date: item.tweet.created_at,
         }
-        if (!replyToSelf && rtOk && passesArchive(tweet, options, signal)) ids.push(item.tweet.id_str)
+        if (!replyToSelf && rtOk && passesArchive(tweet, options, signal)) {
+            tweets.push({
+                id: item.tweet.id_str,
+                type: kindOf(item.tweet.full_text, item.tweet),
+                text: item.tweet.full_text,
+                date: item.tweet.created_at || "",
+            })
+        }
     }
-    return { ids, stop: signal.stop }
+    return { tweets, ids: tweets.map((tweet) => tweet.id), stop: signal.stop }
 }
 
 function parseArchiveText(content) {
@@ -158,18 +182,18 @@ function entriesFromPayload(data) {
 }
 
 function scanEntries(entries, options, userId) {
-    const ids = []
+    const tweets = []
     let stop = false
     for (const item of entries) {
         if (item.entryId.startsWith("profile-conversation") || item.entryId.startsWith("tweet-")) {
             const found = collectTimeline(item, options, userId)
-            ids.push(...found.ids)
+            tweets.push(...found.tweets)
             if (found.stop) stop = true
         } else if (item.entryId.startsWith("cursor-bottom") && entries.length > 2) {
-            return { ids, stop, cursor: item.content.value }
+            return { tweets, ids: tweets.map((tweet) => tweet.id), stop, cursor: item.content.value }
         }
     }
-    return { ids, stop, cursor: "finished" }
+    return { tweets, ids: tweets.map((tweet) => tweet.id), stop, cursor: "finished" }
 }
 
 const repliesPath = "/i/api/graphql/xz348nziCm96wndJ1S0MUQ/UserRepliesTimeline"
@@ -631,6 +655,63 @@ async function deleteIds(ids, ctx) {
     }
 }
 
+function missingSearchSlot(options, slots) {
+    if (activeIds(options.onlyIds).length > 0 || options.fromArchive) return null
+    const slot = listSlot(options, slots)
+    if (!slot.transactionId) return slot
+    return null
+}
+
+async function walkTimeline(ctx, push) {
+    const slot = listSlot(ctx.options, ctx.slots)
+    let cursor = null
+    let stop = false
+    while (cursor !== "finished" && !stop) {
+        if (ctx.isStopped?.()) return
+        const built = requestFromSlot(slot, { userId: ctx.env.userId, cursor })
+        const data = await fetchJson(built.url, {
+            headers: headersFor(slot, ctx),
+            referrer: referrerFor(slot, ctx.env.username),
+            referrerPolicy: "strict-origin-when-cross-origin",
+            body: null,
+            method: "GET",
+            mode: "cors",
+            credentials: "include",
+        }, ctx, "fetch_tweets", 5)
+        const scanned = scanEntries(entriesFromPayload(data), ctx.options, ctx.env.userId)
+        for (const tweet of scanned.tweets) push(tweet)
+        cursor = scanned.cursor
+        stop = scanned.stop
+        if (cursor !== "finished" && !stop) await ctx.sleep(3000)
+    }
+}
+
+async function runSearch(ctx) {
+    const missing = missingSearchSlot(ctx.options, ctx.slots)
+    if (missing) {
+        ctx.log(`falta o transaction id em ${missing.label}`)
+        return { status: "fail", missing: missing.label, tweets: [] }
+    }
+    ctx.onReady?.()
+    const tweets = []
+    const push = (tweet) => {
+        tweets.push(tweet)
+        ctx.onTweet?.(tweet)
+    }
+    if (ctx.options.fromArchive) {
+        const text = await ctx.readArchive()
+        const found = collectArchive(parseArchiveText(text), ctx.options, ctx.env.userId)
+        for (const tweet of found.tweets) push(tweet)
+    } else {
+        const only = activeIds(ctx.options.onlyIds)
+        if (only.length === 0) await walkTimeline(ctx, push)
+        else {
+            for (const id of only) push({ id, type: "post", text: "", date: "" })
+        }
+    }
+    return { status: "done", tweets }
+}
+
 async function deleteTimeline(ctx) {
     const slot = listSlot(ctx.options, ctx.slots)
     let cursor = null
@@ -770,7 +851,7 @@ async function begin(fields, fileText, deps) {
         deps.panel.setStatus("fail")
         return { status: "fail" }
     }
-    deps.panel.setStatus("deleting")
+    deps.panel.setStatus(deps.statusWord || "deleting")
     try {
         const result = await deps.run(options)
         deps.panel.setStatus(result.status)
@@ -929,6 +1010,115 @@ function watchPlacement(host, document, view) {
 
 
 
+const modalChrome = `
+<style>
+  :host { all: initial; }
+  .back {
+    box-sizing: border-box;
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: color-mix(in srgb, var(--text) 35%, transparent);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    color-scheme: var(--scheme);
+  }
+  .modal {
+    box-sizing: border-box;
+    width: min(720px, 100%);
+    max-height: min(80vh, 640px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border: 1px solid var(--edge, color-mix(in srgb, var(--text) 22%, var(--bg)));
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
+  h2 { margin: 0; font-size: 20px; font-weight: 800; }
+  button.close { border: 0; background: transparent; color: var(--accent); font-size: 17px; padding: 0; }
+  .sheet { overflow: auto; min-height: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--edge, color-mix(in srgb, var(--text) 22%, var(--bg))); vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); font-weight: 700; }
+  td.text { white-space: pre-wrap; word-break: break-word; }
+  input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+</style>
+<div class="back">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Tweets encontrados">
+    <header>
+      <h2>Tweets encontrados</h2>
+      <button class="close" type="button" data-action="close">Fechar</button>
+    </header>
+    <div class="sheet">
+      <table>
+        <thead><tr><th></th><th>Tipo</th><th>Data</th><th>Texto</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>`
+
+function modalMarkup() {
+    return modalChrome
+}
+
+function showDate(value) {
+    if (!value) return ""
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return String(value)
+    const day = String(date.getUTCDate()).padStart(2, "0")
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0")
+    return `${day}/${month}/${date.getUTCFullYear()}`
+}
+
+function openSearchModal(document, theme) {
+    const host = document.createElement("div")
+    host.setAttribute("data-x-deleter-modal", "")
+    const shadow = host.attachShadow({ mode: "open" })
+    shadow.innerHTML = modalChrome
+    applyTheme(host, theme)
+    host.style.cssText = "position:fixed;inset:0;z-index:2147483000;display:flex;"
+    const body = shadow.querySelector("tbody")
+    const api = {
+        stopped: false,
+        addTweet(tweet) {
+            if (api.stopped) return
+            const row = document.createElement("tr")
+            const pick = document.createElement("td")
+            const box = document.createElement("input")
+            box.type = "checkbox"
+            box.checked = true
+            box.dataset.id = tweet.id
+            pick.append(box)
+            const type = document.createElement("td")
+            type.textContent = tweet.type
+            const date = document.createElement("td")
+            date.textContent = showDate(tweet.date)
+            const text = document.createElement("td")
+            text.className = "text"
+            text.textContent = tweet.text
+            row.append(pick, type, date, text)
+            body.append(row)
+        },
+        close() {
+            api.stopped = true
+            host.remove()
+        },
+    }
+    shadow.querySelector("[data-action=close]").addEventListener("click", () => api.close())
+    shadow.querySelector(".back").addEventListener("click", (event) => {
+        if (event.target === event.currentTarget) api.close()
+    })
+    document.body.append(host)
+    return api
+}
+
+
+
 
 
 
@@ -1032,7 +1222,7 @@ const markup = `
       <label class="field">Ignorar estes IDs <input type="text" data-field="ignoreIds"></label>
       <label class="field">Apagar só estes IDs <input type="text" data-field="onlyIds"></label>
       <div class="file"><span>Arquivo do export</span><button class="file-btn" type="button">Escolher</button></div>
-      <button class="primary" type="button">Apagar</button>
+      <button class="primary" type="button">Buscar</button>
     </section>
   </section>
   <section class="screen advanced" data-screen="advanced">
@@ -1327,6 +1517,8 @@ function restoreAll(storage) {
 
 
 
+
+
 function cookie(name) {
     const value = `; ${document.cookie}`
     const parts = value.split(`; ${name}=`)
@@ -1385,10 +1577,12 @@ mountPanel(document, window, {
     restoreSlot: (key) => restoreSlot(localStorage, key),
     restoreAll: () => restoreAll(localStorage),
     onStart(fields, fileText, panel) {
+        let modal = null
         return begin(fields, fileText, {
+            statusWord: "buscando",
             panel,
             run(options) {
-                return runDeletion({
+                return runSearch({
                     options,
                     slots: loadSlots(localStorage),
                     env: readEnv(),
@@ -1397,6 +1591,15 @@ mountPanel(document, window, {
                     log: (line) => panel.log(line),
                     onProgress: (value) => panel.progress(value),
                     readArchive: async () => fileText,
+                    onReady() {
+                        modal = openSearchModal(document, sampleTheme(document, window))
+                    },
+                    onTweet(tweet) {
+                        modal?.addTweet(tweet)
+                    },
+                    isStopped() {
+                        return Boolean(modal && modal.stopped)
+                    },
                 })
             },
         })

@@ -16,6 +16,7 @@ const files = [
     "src/ui/capture.js",
     "src/ui/manual.js",
     "src/ui/place.js",
+    "src/ui/modal.js",
     "src/ui/panel.js",
     "src/host/storage.js",
     "src/host/console.js",

@@ -1,7 +1,9 @@
-import { runDeletion } from "../core/run.js"
+import { runSearch } from "../core/run.js"
 import { loadSlots, restoreAll, restoreSlot, saveSlot } from "./storage.js"
+import { openSearchModal } from "../ui/modal.js"
 import { mountPanel } from "../ui/panel.js"
 import { begin } from "../ui/session.js"
+import { sampleTheme } from "../ui/theme.js"
 
 function cookie(name) {
     const value = `; ${document.cookie}`
@@ -61,10 +63,12 @@ mountPanel(document, window, {
     restoreSlot: (key) => restoreSlot(localStorage, key),
     restoreAll: () => restoreAll(localStorage),
     onStart(fields, fileText, panel) {
+        let modal = null
         return begin(fields, fileText, {
+            statusWord: "buscando",
             panel,
             run(options) {
-                return runDeletion({
+                return runSearch({
                     options,
                     slots: loadSlots(localStorage),
                     env: readEnv(),
@@ -73,6 +77,15 @@ mountPanel(document, window, {
                     log: (line) => panel.log(line),
                     onProgress: (value) => panel.progress(value),
                     readArchive: async () => fileText,
+                    onReady() {
+                        modal = openSearchModal(document, sampleTheme(document, window))
+                    },
+                    onTweet(tweet) {
+                        modal?.addTweet(tweet)
+                    },
+                    isStopped() {
+                        return Boolean(modal && modal.stopped)
+                    },
                 })
             },
         })

@@ -7,7 +7,7 @@ export async function begin(fields, fileText, deps) {
         deps.panel.setStatus("fail")
         return { status: "fail" }
     }
-    deps.panel.setStatus("deleting")
+    deps.panel.setStatus(deps.statusWord || "deleting")
     try {
         const result = await deps.run(options)
         deps.panel.setStatus(result.status)
