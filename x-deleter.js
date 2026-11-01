@@ -935,6 +935,7 @@ const markup = `
   textarea.curl:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
   button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; transition: background-color 0.2s ease; }
   button.primary:hover { background: color-mix(in srgb, var(--btn-text) 12%, var(--btn-bg)); }
+  button.primary:disabled { opacity: 0.6; }
   .file { display: none; }
   .file.on { display: flex; justify-content: space-between; }
   button.file-btn { border: 1px solid var(--edge); border-radius: 999px; background: var(--bg); color: var(--text); padding: 6px 12px; transition: background-color 0.2s ease; }
@@ -1019,6 +1020,21 @@ const markup = `
 
 function panelMarkup() {
     return markup
+}
+
+function showAnalyze(button, area, work, view) {
+    const text = area.value
+    button.disabled = true
+    button.textContent = "Analisando..."
+    view.setTimeout(() => {
+        try {
+            work(text)
+        } finally {
+            area.value = ""
+            button.textContent = "Analisar"
+            button.disabled = false
+        }
+    }, 0)
 }
 
 function mountPanel(document, view, handlers) {
@@ -1127,25 +1143,28 @@ function mountPanel(document, view, handlers) {
         })
     }
     shadow.querySelector("[data-action=analyze]").addEventListener("click", () => {
-        const text = shadow.querySelector("textarea.curl").value
-        const result = analyze(text, {
-            panel,
-            saveSlot: handlers.saveSlot,
-            openManual(parsed) {
-                pending = parsed
-                if (!parsed.slotKey) return
-                fillManual(openSlot(parsed.slotKey, handlers.slots(), parsed))
-                show("manual")
-            },
-        })
-        if (!result || !result.ok) return
-        if (!result.slotKey) {
-            pending = result
-            return
-        }
-        if (result.ambiguous) return
-        pending = null
-        markReady(result.slotKey, Boolean(result.slot.transactionId))
+        const button = shadow.querySelector("[data-action=analyze]")
+        const area = shadow.querySelector("textarea.curl")
+        showAnalyze(button, area, (text) => {
+            const result = analyze(text, {
+                panel,
+                saveSlot: handlers.saveSlot,
+                openManual(parsed) {
+                    pending = parsed
+                    if (!parsed.slotKey) return
+                    fillManual(openSlot(parsed.slotKey, handlers.slots(), parsed))
+                    show("manual")
+                },
+            })
+            if (!result || !result.ok) return
+            if (!result.slotKey) {
+                pending = result
+                return
+            }
+            if (result.ambiguous) return
+            pending = null
+            markReady(result.slotKey, Boolean(result.slot.transactionId))
+        }, view)
     })
     shadow.querySelector("[data-action=save]").addEventListener("click", () => {
         const key = shadow.querySelector("[data-screen=manual]").dataset.slot

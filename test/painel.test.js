@@ -6,7 +6,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { optionsFromFields } from "../src/ui/settings.js"
 import { begin } from "../src/ui/session.js"
-import { panelMarkup } from "../src/ui/panel.js"
+import { panelMarkup, showAnalyze } from "../src/ui/panel.js"
 import { attachPanel } from "../src/ui/place.js"
 import { isDark, sampleTheme } from "../src/ui/theme.js"
 
@@ -127,6 +127,18 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.match(html, /--edge: color-mix/)
     assert.match(html, /\.wrap:hover/)
     assert.match(html, /\.quick:hover, \.setup:hover/)
+    assert.match(html, />Analisar</)
+
+    const analyzeButton = { textContent: "Analisar", disabled: false }
+    const area = { value: "curl exemplo" }
+    let during = ""
+    showAnalyze(analyzeButton, area, (text) => {
+        during = `${analyzeButton.textContent}:${text}`
+    }, { setTimeout(callback) { callback() } })
+    assert.equal(during, "Analisando...:curl exemplo")
+    assert.equal(analyzeButton.textContent, "Analisar")
+    assert.equal(analyzeButton.disabled, false)
+    assert.equal(area.value, "")
     assert.equal(html.includes("width: 380px"), false)
     assert.equal(html.includes("Drop Your File Here"), false)
 
