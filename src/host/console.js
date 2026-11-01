@@ -1,5 +1,5 @@
 import { runDeletion } from "../core/run.js"
-import { loadSlots, saveSlot } from "./storage.js"
+import { loadSlots, restoreAll, restoreSlot, saveSlot } from "./storage.js"
 import { mountPanel } from "../ui/panel.js"
 import { begin } from "../ui/session.js"
 
@@ -58,6 +58,8 @@ function readEnv() {
 mountPanel(document, window, {
     slots: () => loadSlots(localStorage),
     saveSlot: (key, slot) => saveSlot(localStorage, key, slot),
+    restoreSlot: (key) => restoreSlot(localStorage, key),
+    restoreAll: () => restoreAll(localStorage),
     onStart(fields, fileText, panel) {
         return begin(fields, fileText, {
             panel,

@@ -1,4 +1,5 @@
 import { analyze } from "./capture.js"
+import { openSlot, presentManual, slotFromForm } from "./manual.js"
 import { applyTheme, sampleTheme } from "./theme.js"
 
 const chevron = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 19 L8 12 L15 5"/></svg>`
@@ -51,6 +52,10 @@ const markup = `
   ul.setup li { display: flex; align-items: center; gap: 10px; font-size: 15px; padding: 10px 0; border-bottom: 1px solid var(--line); }
   button.name { border: 0; background: transparent; color: var(--accent); font-weight: 700; font-size: 15px; padding: 0; }
   .hint { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
+  select, textarea.box { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); width: 100%; box-sizing: border-box; }
+  textarea.box { font-family: ui-monospace, monospace; font-size: 12.5px; }
+  ul.candidates { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+  .actions { display: flex; gap: 8px; }
 </style>
 <div class="wrap">
   <section class="screen main on" data-screen="main">
@@ -94,6 +99,29 @@ const markup = `
       <li><input type="checkbox" disabled data-ready="old"> <button class="name" type="button" data-slot="old">Buscar tweets antigos</button></li>
       <li><input type="checkbox" disabled data-ready="delete"> <button class="name" type="button" data-slot="delete">Apagar tweet</button></li>
     </ul>
+    <div><button class="primary" type="button" data-action="restore-all">Restaurar tudo</button></div>
+  </section>
+  <section class="screen manual" data-screen="manual">
+    <header><h2>Apagar tweet</h2></header>
+    <a class="back" data-action="back-advanced" href="#advanced">${chevron}Configurações Avançadas</a>
+    <div class="quick">
+      <label class="field">Método <select data-field="method"><option>GET</option><option>POST</option></select></label>
+      <label class="field">Caminho <input type="text" data-field="path"></label>
+      <div data-part="post">
+        <label class="field">Status de sucesso <input type="text" data-field="successStatus"></label>
+        <label class="field">Content-Type <input type="text" data-field="contentType"></label>
+        <label class="field">Corpo <textarea class="box" data-field="body" rows="7"></textarea></label>
+      </div>
+      <div data-part="search">
+        <label class="field">Variáveis <textarea class="box" data-field="variables" rows="5"></textarea></label>
+        <label class="field">Features <textarea class="box" data-field="features" rows="3"></textarea></label>
+      </div>
+      <ul class="candidates"></ul>
+      <div class="actions">
+        <button class="primary" type="button" data-action="save">Guardar</button>
+        <button class="primary" type="button" data-action="restore">Restaurar</button>
+      </div>
+    </div>
   </section>
 </div>`
 
@@ -112,6 +140,46 @@ export function mountPanel(document, view, handlers) {
     const pill = shadow.querySelector(".pill")
     const fileRow = shadow.querySelector(".file")
     let fileText = ""
+    let pending = null
+
+    function fillManual(state) {
+        const screen = shadow.querySelector("[data-screen=manual]")
+        screen.dataset.slot = state.slotKey
+        screen.querySelector("h2").textContent = state.title
+        shadow.querySelector("[data-field=method]").value = state.method
+        shadow.querySelector("[data-field=path]").value = state.path
+        shadow.querySelector("[data-field=successStatus]").value = state.successStatus
+        shadow.querySelector("[data-field=contentType]").value = state.contentType
+        shadow.querySelector("[data-field=variables]").value = state.variables
+        shadow.querySelector("[data-field=features]").value = state.features
+        shadow.querySelector("[data-field=body]").value = state.body
+        shadow.querySelector("[data-part=search]").hidden = !state.search
+        shadow.querySelector("[data-part=post]").hidden = state.search
+        const list = shadow.querySelector(".candidates")
+        list.replaceChildren()
+        for (const candidate of state.candidates) {
+            const item = document.createElement("li")
+            item.textContent = candidate
+            list.append(item)
+        }
+    }
+
+    function markReady(key, ready) {
+        const box = shadow.querySelector(`[data-ready="${key}"]`)
+        if (box) box.checked = ready
+    }
+
+    function formFields() {
+        return {
+            method: shadow.querySelector("[data-field=method]").value,
+            path: shadow.querySelector("[data-field=path]").value,
+            successStatus: shadow.querySelector("[data-field=successStatus]").value,
+            contentType: shadow.querySelector("[data-field=contentType]").value,
+            variables: shadow.querySelector("[data-field=variables]").value,
+            features: shadow.querySelector("[data-field=features]").value,
+            body: shadow.querySelector("[data-field=body]").value,
+        }
+    }
 
     function show(name) {
         for (const screen of shadow.querySelectorAll(".screen")) {
@@ -157,20 +225,66 @@ export function mountPanel(document, view, handlers) {
         event.preventDefault()
         show("main")
     })
+    shadow.querySelector("[data-action=back-advanced]").addEventListener("click", (event) => {
+        event.preventDefault()
+        show("advanced")
+    })
+    for (const button of shadow.querySelectorAll("[data-slot]")) {
+        button.addEventListener("click", () => {
+            fillManual(openSlot(button.dataset.slot, handlers.slots(), pending))
+            show("manual")
+        })
+    }
     shadow.querySelector("[data-action=analyze]").addEventListener("click", () => {
         const text = shadow.querySelector("textarea.curl").value
         const result = analyze(text, {
             panel,
             saveSlot: handlers.saveSlot,
+            openManual(parsed) {
+                pending = parsed
+                if (!parsed.slotKey) return
+                fillManual(openSlot(parsed.slotKey, handlers.slots(), parsed))
+                show("manual")
+            },
         })
-        if (result && result.ok && result.slotKey && !result.ambiguous) {
-            const box = shadow.querySelector(`[data-ready="${result.slotKey}"]`)
-            if (box) box.checked = true
+        if (!result || !result.ok) return
+        if (!result.slotKey) {
+            pending = result
+            return
         }
+        if (result.ambiguous) return
+        pending = null
+        markReady(result.slotKey, Boolean(result.slot.transactionId))
     })
-    shadow.querySelector(".primary").addEventListener("click", () => {
+    shadow.querySelector("[data-action=save]").addEventListener("click", () => {
+        const key = shadow.querySelector("[data-screen=manual]").dataset.slot
+        const result = slotFromForm(key, formFields(), handlers.slots()[key])
+        if (!result.ok) {
+            panel.log(result.error)
+            return
+        }
+        handlers.saveSlot(key, result.slot)
+        pending = null
+        markReady(key, Boolean(result.slot.transactionId))
+        show("advanced")
+    })
+    shadow.querySelector("[data-action=restore]").addEventListener("click", () => {
+        const key = shadow.querySelector("[data-screen=manual]").dataset.slot
+        handlers.restoreSlot(key)
+        pending = null
+        const slot = handlers.slots()[key]
+        fillManual(presentManual(key, slot, []))
+        markReady(key, Boolean(slot.transactionId))
+    })
+    shadow.querySelector("[data-action=restore-all]").addEventListener("click", () => {
+        handlers.restoreAll()
+        pending = null
+        const slots = handlers.slots()
+        for (const key of ["replies", "old", "delete"]) markReady(key, Boolean(slots[key].transactionId))
+    })
+    shadow.querySelector(".screen.main .primary").addEventListener("click", () => {
         const fields = {}
-        for (const input of shadow.querySelectorAll("[data-field]")) {
+        for (const input of shadow.querySelector(".screen.main").querySelectorAll("[data-field]")) {
             fields[input.dataset.field] = input.type === "checkbox" ? input.checked : input.value
         }
         handlers.onStart(fields, fileText, panel)

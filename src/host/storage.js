@@ -29,3 +29,15 @@ export function saveSlot(storage, key, slot) {
     storage.setItem(configKey, JSON.stringify(saved))
     return loadSlots(storage)
 }
+
+export function restoreSlot(storage, key) {
+    const saved = read(storage)
+    saved[key] = null
+    storage.setItem(configKey, JSON.stringify(saved))
+    return loadSlots(storage)
+}
+
+export function restoreAll(storage) {
+    storage.removeItem(configKey)
+    return loadSlots(storage)
+}
