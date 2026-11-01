@@ -1,5 +1,5 @@
-import { defaultSlots } from "../core/options.js"
 import { runDeletion } from "../core/run.js"
+import { loadSlots, saveSlot } from "./storage.js"
 import { mountPanel } from "../ui/panel.js"
 import { begin } from "../ui/session.js"
 
@@ -36,6 +36,12 @@ function username() {
     return part
 }
 
+function platform() {
+    const data = navigator.userAgentData
+    if (!data || !data.platform) return ""
+    return `"${data.platform}"`
+}
+
 function readEnv() {
     const language = (navigator.language || "en").split("-")[0]
     return {
@@ -43,25 +49,30 @@ function readEnv() {
         username: username(),
         csrf: cookie("ct0"),
         secChUa: secChUa(),
+        platform: platform(),
         acceptLanguage: acceptLanguage(),
         language,
     }
 }
 
-mountPanel(document, window, (fields, fileText, panel) => {
-    return begin(fields, fileText, {
-        panel,
-        run(options) {
-            return runDeletion({
-                options,
-                slots: defaultSlots(),
-                env: readEnv(),
-                fetch: globalThis.fetch.bind(globalThis),
-                sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-                log: (line) => panel.log(line),
-                onProgress: (value) => panel.progress(value),
-                readArchive: async () => fileText,
-            })
-        },
-    })
+mountPanel(document, window, {
+    slots: () => loadSlots(localStorage),
+    saveSlot: (key, slot) => saveSlot(localStorage, key, slot),
+    onStart(fields, fileText, panel) {
+        return begin(fields, fileText, {
+            panel,
+            run(options) {
+                return runDeletion({
+                    options,
+                    slots: loadSlots(localStorage),
+                    env: readEnv(),
+                    fetch: globalThis.fetch.bind(globalThis),
+                    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+                    log: (line) => panel.log(line),
+                    onProgress: (value) => panel.progress(value),
+                    readArchive: async () => fileText,
+                })
+            },
+        })
+    },
 })

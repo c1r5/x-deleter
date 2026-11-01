@@ -29,9 +29,27 @@ function featuresFor(kind) {
     return { rweb_lists_timeline_redesign_enabled: true, ...featureFlags }
 }
 
-function variablesFor(kind, userId, cursor) {
-    const variables = { userId, count: 20 }
-    if (cursor) variables.cursor = cursor
+function applyValue(value, ctx) {
+    if (Array.isArray(value)) return value.map((item) => applyValue(item, ctx))
+    if (value && typeof value === "object") {
+        const out = {}
+        for (const [key, child] of Object.entries(value)) {
+            if (child === "{{cursor}}" && !ctx.cursor) continue
+            out[key] = applyValue(child, ctx)
+        }
+        return out
+    }
+    if (typeof value === "string") {
+        return value
+            .replaceAll("{{tweet_id}}", ctx.tweetId || "")
+            .replaceAll("{{user_id}}", ctx.userId || "")
+            .replaceAll("{{cursor}}", ctx.cursor || "")
+    }
+    return value
+}
+
+function variablesTemplate(kind) {
+    const variables = { userId: "{{user_id}}", count: 20, cursor: "{{cursor}}" }
     variables.includePromotedContent = true
     if (kind === "old") variables.withQuickPromoteEligibilityTweetFields = true
     else variables.withCommunity = true
@@ -40,24 +58,62 @@ function variablesFor(kind, userId, cursor) {
     return variables
 }
 
+export function defaultSlotRequest(kind) {
+    if (kind === "delete") {
+        return {
+            method: "POST",
+            path: deletePath,
+            variables: null,
+            features: null,
+            body: {
+                variables: { tweet_id: "{{tweet_id}}", dark_request: false },
+                queryId: deleteQueryId,
+            },
+            contentType: "application/json",
+            successStatus: 200,
+        }
+    }
+    return {
+        method: "GET",
+        path: repliesPath,
+        variables: variablesTemplate(kind),
+        features: featuresFor(kind),
+        body: null,
+        contentType: "application/json",
+        successStatus: 200,
+    }
+}
+
+export function requestFromSlot(slot, ctx) {
+    const filled = {
+        tweetId: ctx.tweetId || "",
+        userId: ctx.userId || "",
+        cursor: ctx.cursor || "",
+    }
+    let url = `https://x.com${slot.path}`
+    if ((slot.method || "GET").toUpperCase() !== "POST") {
+        const parts = []
+        if (slot.variables) parts.push(`variables=${encodeURIComponent(JSON.stringify(applyValue(slot.variables, filled)))}`)
+        if (slot.features) parts.push(`features=${encodeURIComponent(JSON.stringify(applyValue(slot.features, filled)))}`)
+        if (parts.length) url += `?${parts.join("&")}`
+        return { url, method: "GET", body: null }
+    }
+    return { url, method: "POST", body: JSON.stringify(applyValue(slot.body, filled)) }
+}
+
 export function timelineUrl(kind, userId, cursor) {
-    const variables = encodeURIComponent(JSON.stringify(variablesFor(kind, userId, cursor)))
-    const features = encodeURIComponent(JSON.stringify(featuresFor(kind)))
-    return `https://x.com${repliesPath}?variables=${variables}&features=${features}`
+    return requestFromSlot(defaultSlotRequest(kind), { userId, cursor }).url
 }
 
 export function deleteUrl() {
-    return `https://x.com${deletePath}`
+    return requestFromSlot(defaultSlotRequest("delete"), {}).url
 }
 
 export function deleteBody(tweetId) {
-    return JSON.stringify({
-        variables: { tweet_id: tweetId, dark_request: false },
-        queryId: deleteQueryId,
-    })
+    return requestFromSlot(defaultSlotRequest("delete"), { tweetId }).body
 }
 
-export function requestHeaders({ authorization, transactionId, clientUuid, csrf, secChUa, acceptLanguage, language }) {
+export function requestHeaders({ authorization, transactionId, clientUuid, csrf, secChUa, acceptLanguage, language, platform }) {
     return {
         accept: "*/*",
         "accept-language": acceptLanguage,
@@ -65,7 +121,7 @@ export function requestHeaders({ authorization, transactionId, clientUuid, csrf,
         "content-type": "application/json",
         "sec-ch-ua": secChUa,
         "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": "\"Windows\"",
+        "sec-ch-ua-platform": platform || "\"Windows\"",
         "sec-fetch-dest": "empty",
         "sec-fetch-mode": "cors",
         "sec-fetch-site": "same-origin",

@@ -1,3 +1,5 @@
+import { defaultSlotRequest } from "./request.js"
+
 export const publicBearer = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 
 export function defaultOptions() {
@@ -15,26 +17,23 @@ export function defaultOptions() {
     }
 }
 
+function slot(label, kind) {
+    return {
+        label,
+        transactionId: "",
+        clientUuid: "",
+        authorization: publicBearer,
+        secChUa: "",
+        platform: "",
+        ...defaultSlotRequest(kind),
+    }
+}
+
 export function defaultSlots() {
     return {
-        replies: {
-            label: "Buscar respostas",
-            transactionId: "",
-            clientUuid: "",
-            authorization: publicBearer,
-        },
-        old: {
-            label: "Buscar tweets antigos",
-            transactionId: "",
-            clientUuid: "",
-            authorization: publicBearer,
-        },
-        delete: {
-            label: "Apagar tweet",
-            transactionId: "",
-            clientUuid: "",
-            authorization: publicBearer,
-        },
+        replies: slot("Buscar respostas", "replies"),
+        old: slot("Buscar tweets antigos", "old"),
+        delete: slot("Apagar tweet", "delete"),
     }
 }
 

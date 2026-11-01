@@ -1,5 +1,5 @@
 import { activeIds } from "./options.js"
-import { deleteBody, deleteUrl, requestHeaders, timelineUrl } from "./request.js"
+import { requestFromSlot, requestHeaders } from "./request.js"
 import { collectArchive, entriesFromPayload, parseArchiveText, scanEntries } from "./select.js"
 
 function listSlot(options, slots) {
@@ -37,9 +37,10 @@ function headersFor(slot, ctx) {
         transactionId: slot.transactionId,
         clientUuid: slot.clientUuid,
         csrf: ctx.env.csrf,
-        secChUa: ctx.env.secChUa,
+        secChUa: ctx.env.secChUa || slot.secChUa || "",
         acceptLanguage: ctx.env.acceptLanguage,
         language: ctx.env.language,
+        platform: ctx.env.platform || slot.platform || "",
     })
 }
 
@@ -47,12 +48,13 @@ async function deleteIds(ids, ctx) {
     const slot = ctx.slots.delete
     let retry = 0
     for (let i = 0; i < ids.length; i++) {
-        const response = await ctx.fetch(deleteUrl(), {
+        const built = requestFromSlot(slot, { tweetId: ids[i], userId: ctx.env.userId })
+        const response = await ctx.fetch(built.url, {
             headers: headersFor(slot, ctx),
             referrer: `https://x.com/${ctx.env.username}/with_replies`,
             referrerPolicy: "strict-origin-when-cross-origin",
-            body: deleteBody(ids[i]),
-            method: "POST",
+            body: built.body,
+            method: built.method,
             mode: "cors",
             credentials: "include",
         })
@@ -82,8 +84,8 @@ async function deleteTimeline(ctx) {
     let cursor = null
     let stop = false
     while (cursor !== "finished" && !stop) {
-        const kind = ctx.options.oldTweets ? "old" : "replies"
-        const data = await fetchJson(timelineUrl(kind, ctx.env.userId, cursor), {
+        const built = requestFromSlot(slot, { userId: ctx.env.userId, cursor })
+        const data = await fetchJson(built.url, {
             headers: headersFor(slot, ctx),
             referrer: `https://x.com/${ctx.env.username}/with_replies`,
             referrerPolicy: "strict-origin-when-cross-origin",

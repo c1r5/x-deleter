@@ -7,11 +7,14 @@ const files = [
     "src/core/options.js",
     "src/core/select.js",
     "src/core/request.js",
+    "src/core/parse.js",
     "src/core/run.js",
     "src/ui/theme.js",
     "src/ui/settings.js",
     "src/ui/session.js",
+    "src/ui/capture.js",
     "src/ui/panel.js",
+    "src/host/storage.js",
     "src/host/console.js",
 ]
 
