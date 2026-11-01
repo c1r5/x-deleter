@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -26,5 +27,11 @@ const body = files.map((file) => {
 }).join("\n")
 
 const script = `// Cole este arquivo no console de x.com, com a conta aberta.\n(async () => {\n${body}\n})()\n`
-writeFileSync(join(root, "x-deleter.js"), script)
+const out = join(root, "x-deleter.js")
+writeFileSync(out, script)
+const check = spawnSync(process.execPath, ["--check", out], { encoding: "utf8" })
+if (check.status !== 0) {
+    console.error(check.stderr)
+    process.exit(check.status || 1)
+}
 console.log("x-deleter.js")

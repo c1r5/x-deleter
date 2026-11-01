@@ -1,4 +1,4 @@
-const labels = {
+const slotLabels = {
     replies: "Buscar respostas",
     old: "Buscar tweets antigos",
     delete: "Apagar tweet",
@@ -8,7 +8,7 @@ export function presentManual(slotKey, slot, candidates = []) {
     const search = slotKey !== "delete"
     return {
         slotKey,
-        title: labels[slotKey] || slot.label || "",
+        title: slotLabels[slotKey] || slot.label || "",
         search,
         method: slot.method || (search ? "GET" : "POST"),
         path: slot.path || "",
@@ -23,7 +23,7 @@ export function presentManual(slotKey, slot, candidates = []) {
 
 export function openSlot(slotKey, slots, pending) {
     const fromPending = pending && (pending.slotKey === slotKey || !pending.slotKey)
-    const slot = fromPending ? { ...pending.slot, label: labels[slotKey] } : slots[slotKey]
+    const slot = fromPending ? { ...pending.slot, label: slotLabels[slotKey] } : slots[slotKey]
     const candidates = fromPending && pending.ambiguous ? pending.candidates : []
     return presentManual(slotKey, slot, candidates)
 }
@@ -49,7 +49,7 @@ export function slotFromForm(slotKey, form, previous) {
         return { ok: false, error: "json_invalido" }
     }
     const slot = {
-        label: labels[slotKey],
+        label: slotLabels[slotKey],
         method: form.method || previous.method,
         path: form.path,
         variables,
