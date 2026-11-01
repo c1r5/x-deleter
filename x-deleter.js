@@ -825,6 +825,57 @@ function slotFromForm(slotKey, form, previous) {
     return { ok: true, slot }
 }
 
+const hideStyle = `[data-testid="sidebarColumn"] > :not([data-x-deleter-host]) { display: none !important; }`
+
+function shown(node, view) {
+    if (!node || node.isConnected === false) return false
+    const style = view.getComputedStyle(node)
+    if (style.display === "none" || style.visibility === "hidden") return false
+    const rect = typeof node.getBoundingClientRect === "function" ? node.getBoundingClientRect() : null
+    if (rect && rect.width === 0) return false
+    return true
+}
+
+function ensureHideStyle(document) {
+    if (document.getElementById("x-deleter-sidebar")) return
+    const style = document.createElement("style")
+    style.id = "x-deleter-sidebar"
+    style.textContent = hideStyle
+    ;(document.head || document.documentElement).append(style)
+}
+
+function attachPanel(host, document, view) {
+    ensureHideStyle(document)
+    const sidebar = document.querySelector('[data-testid="sidebarColumn"]')
+    const primary = document.querySelector('[data-testid="primaryColumn"]')
+    const target = shown(sidebar, view) ? sidebar : (primary || document.body)
+    const mode = target === sidebar ? "sidebar" : "primary"
+    host.setAttribute("data-x-deleter-host", "")
+    host.dataset.place = mode
+    host.style.cssText = "box-sizing:border-box;display:flex;flex-direction:column;width:100%;height:100dvh;max-height:100dvh;position:sticky;top:0;min-width:0;z-index:1;"
+    if (host.parentElement !== target) target.prepend(host)
+    return mode
+}
+
+function watchPlacement(host, document, view) {
+    let scheduled = false
+    const schedule = () => {
+        if (scheduled) return
+        scheduled = true
+        const frame = view.requestAnimationFrame || ((callback) => callback())
+        frame(() => {
+            scheduled = false
+            attachPanel(host, document, view)
+        })
+    }
+    attachPanel(host, document, view)
+    view.addEventListener?.("resize", schedule)
+    const observer = new view.MutationObserver(schedule)
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true })
+    return schedule
+}
+
+
 
 
 
@@ -834,10 +885,13 @@ const chevron = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const markup = `
 <style>
   :host { all: initial; }
+  :host([data-place="primary"]) .wrap { border-left: 0; }
   .wrap {
     box-sizing: border-box;
-    width: 380px;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     padding: 8px 16px 16px;
@@ -851,7 +905,7 @@ const markup = `
   .screen { display: none; flex-direction: column; gap: 12px; }
   .screen.on { display: flex; }
   header { display: flex; align-items: center; justify-content: space-between; min-height: 53px; }
-  h2 { margin: 0; font-size: 20px; font-weight: 800; }
+  h2 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.2; min-width: 0; }
   button.icon { width: 34px; height: 34px; border: 0; border-radius: 999px; background: transparent; color: var(--text); }
   button.icon svg { width: 20px; height: 20px; }
   a.back { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); text-decoration: none; font-weight: 400; font-size: 17px; }
@@ -866,10 +920,11 @@ const markup = `
   .quick h3 { margin: 0; font-size: 15px; font-weight: 800; }
   label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
   label.field, label.date { flex-direction: column; align-items: stretch; gap: 4px; font-size: 13px; color: var(--muted); }
-  .dates { display: flex; gap: 8px; }
+  .dates { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dates .date { flex: 1 1 9rem; min-width: 0; }
   input, button.primary, textarea { font: inherit; color: var(--text); }
   input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
-  input[type="date"], input[type="text"] { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); }
+  input[type="date"], input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); }
   textarea.curl { min-height: 120px; border: 0; border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; }
   button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; }
   .file { display: none; }
@@ -958,7 +1013,6 @@ function panelMarkup() {
 
 function mountPanel(document, view, handlers) {
     const host = document.createElement("div")
-    host.style.cssText = "position:fixed;top:0;right:0;width:380px;height:100vh;z-index:2147483647;"
     const shadow = host.attachShadow({ mode: "open" })
     shadow.innerHTML = markup
     const root = shadow.querySelector(".wrap")
@@ -1130,7 +1184,7 @@ function mountPanel(document, view, handlers) {
             pill.textContent = status
         },
     }
-    document.body.append(host)
+    watchPlacement(host, document, view)
     return panel
 }
 

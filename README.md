@@ -18,7 +18,7 @@ O comando grava `x-deleter.js`. Não há dependência para instalar.
 
 Abra o seu perfil em x.com, logado. O nome da conta sai do endereço da página. O id sai do cookie `twid`.
 
-Abra o console, cole o conteúdo de `x-deleter.js` e tecle Enter. O Chrome pede `allow pasting` antes de aceitar um colar grande. O painel aparece na lateral direita, por cima da página, e acompanha o tema claro ou Lights out.
+Abra o console, cole o conteúdo de `x-deleter.js` e tecle Enter. O Chrome pede `allow pasting` antes de aceitar um colar grande. O painel ocupa a coluna da direita do X e acompanha a largura dela. Quando o X esconde essa coluna, o painel vai para o topo da coluna principal. As cores seguem o tema claro ou Lights out.
 
 ## Configurar as requisições
 
@@ -68,4 +68,4 @@ Apagar muda o status para `deleting`. A barra é o lote atual. No fim, o status 
 
 No status 429 o log avisa e a espera é de 1 minuto. Outro erro HTTP espera e tenta de novo.
 
-O painel cobre a coluna direita do X.
+O painel usa a coluna da direita do X. A largura muda com a janela, no mesmo ponto em que o X muda essa coluna.

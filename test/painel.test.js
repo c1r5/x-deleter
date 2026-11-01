@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url"
 import { optionsFromFields } from "../src/ui/settings.js"
 import { begin } from "../src/ui/session.js"
 import { panelMarkup } from "../src/ui/panel.js"
+import { attachPanel } from "../src/ui/place.js"
 import { isDark, sampleTheme } from "../src/ui/theme.js"
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..")
@@ -18,6 +19,18 @@ function fakeDocument(colors, scheme) {
         querySelector: () => ({ href: "/" }),
         querySelectorAll: () => [],
         viewColors: colors,
+    }
+}
+
+function slot() {
+    return {
+        isConnected: true,
+        children: [],
+        prepend(node) {
+            this.children = this.children.filter((child) => child !== node)
+            this.children.unshift(node)
+            node.parentElement = this
+        },
     }
 }
 
@@ -110,7 +123,44 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.match(html, /Tweet deleter/)
     assert.match(html, /Configurações rápidas/)
     assert.match(html, />Apagar</)
+    assert.match(html, /width: 100%/)
+    assert.equal(html.includes("width: 380px"), false)
     assert.equal(html.includes("Drop Your File Here"), false)
+
+    const sidebar = slot()
+    const primary = slot()
+    const page = {
+        sidebar,
+        primary,
+        head: { append() {} },
+        getElementById() { return { id: "x-deleter-sidebar" } },
+        createElement() { return {} },
+        querySelector(selector) {
+            if (selector === '[data-testid="sidebarColumn"]') return sidebar
+            if (selector === '[data-testid="primaryColumn"]') return primary
+            return null
+        },
+    }
+    const host = { style: {}, dataset: {}, setAttribute() {}, parentElement: null }
+    const wide = {
+        getComputedStyle(node) {
+            return { display: node === sidebar ? "flex" : "block" }
+        },
+    }
+    assert.equal(attachPanel(host, page, wide), "sidebar")
+    assert.equal(host.parentElement, sidebar)
+    assert.equal(sidebar.children.length, 1)
+    attachPanel(host, page, wide)
+    assert.equal(sidebar.children.length, 1)
+
+    const narrow = {
+        getComputedStyle(node) {
+            return { display: node === sidebar ? "none" : "block" }
+        },
+    }
+    assert.equal(attachPanel(host, page, narrow), "primary")
+    assert.equal(host.parentElement, primary)
+    assert.equal(host.dataset.place, "primary")
 
     const built = spawnSync(process.execPath, ["scripts/build.mjs"], { cwd: root, encoding: "utf8" })
     assert.equal(built.status, 0, built.stderr)

@@ -1,5 +1,6 @@
 import { analyze } from "./capture.js"
 import { openSlot, presentManual, slotFromForm } from "./manual.js"
+import { watchPlacement } from "./place.js"
 import { applyTheme, sampleTheme } from "./theme.js"
 
 const chevron = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 19 L8 12 L15 5"/></svg>`
@@ -7,10 +8,13 @@ const chevron = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const markup = `
 <style>
   :host { all: initial; }
+  :host([data-place="primary"]) .wrap { border-left: 0; }
   .wrap {
     box-sizing: border-box;
-    width: 380px;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     padding: 8px 16px 16px;
@@ -24,7 +28,7 @@ const markup = `
   .screen { display: none; flex-direction: column; gap: 12px; }
   .screen.on { display: flex; }
   header { display: flex; align-items: center; justify-content: space-between; min-height: 53px; }
-  h2 { margin: 0; font-size: 20px; font-weight: 800; }
+  h2 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.2; min-width: 0; }
   button.icon { width: 34px; height: 34px; border: 0; border-radius: 999px; background: transparent; color: var(--text); }
   button.icon svg { width: 20px; height: 20px; }
   a.back { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); text-decoration: none; font-weight: 400; font-size: 17px; }
@@ -39,10 +43,11 @@ const markup = `
   .quick h3 { margin: 0; font-size: 15px; font-weight: 800; }
   label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
   label.field, label.date { flex-direction: column; align-items: stretch; gap: 4px; font-size: 13px; color: var(--muted); }
-  .dates { display: flex; gap: 8px; }
+  .dates { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dates .date { flex: 1 1 9rem; min-width: 0; }
   input, button.primary, textarea { font: inherit; color: var(--text); }
   input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
-  input[type="date"], input[type="text"] { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); }
+  input[type="date"], input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--bg); }
   textarea.curl { min-height: 120px; border: 0; border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; }
   button.primary { border: 0; border-radius: 999px; padding: 8px 16px; background: var(--btn-bg); color: var(--btn-text); font-weight: 700; }
   .file { display: none; }
@@ -131,7 +136,6 @@ export function panelMarkup() {
 
 export function mountPanel(document, view, handlers) {
     const host = document.createElement("div")
-    host.style.cssText = "position:fixed;top:0;right:0;width:380px;height:100vh;z-index:2147483647;"
     const shadow = host.attachShadow({ mode: "open" })
     shadow.innerHTML = markup
     const root = shadow.querySelector(".wrap")
@@ -303,6 +307,6 @@ export function mountPanel(document, view, handlers) {
             pill.textContent = status
         },
     }
-    document.body.append(host)
+    watchPlacement(host, document, view)
     return panel
 }
