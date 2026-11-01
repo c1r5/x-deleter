@@ -2,6 +2,7 @@ const slotByOperation = {
     UserRepliesTimeline: "replies",
     UserTweetsAndReplies: "replies",
     UserTweets: "old",
+    UserOriginalsTimeline: "old",
     DeleteTweet: "delete",
 }
 

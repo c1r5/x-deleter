@@ -134,6 +134,41 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     assert.equal(JSON.stringify(old.slot).includes("outro-cookie"), false)
     assert.equal(JSON.stringify(old.slot).includes("csrf-curl"), false)
 
+    const postsUrl = `https://x.com/i/api/graphql/0L_XictlTdXhxJyxhMDxQA/UserOriginalsTimeline?${query({
+        userId: "111111111111111111",
+        count: 40,
+        cursor: "CURSOR-DE-TESTE",
+        includePromotedContent: true,
+        withQuickPromoteEligibilityTweetFields: true,
+        withVoice: true,
+    }, { rweb_video_screen_enabled: false })}&fieldToggles=${encodeURIComponent(JSON.stringify({ withPayments: false, withArticlePlainText: false }))}`
+    const curlPosts = [
+        `curl --url '${postsUrl}' \\`,
+        "  -H 'authorization: Bearer posts' \\",
+        "  -b 'ct0=nao-usar; auth_token=segredo' \\",
+        "  -H 'x-client-transaction-id: tid-posts' \\",
+        "  -H 'x-csrf-token: csrf-colado'",
+    ].join("\n")
+    const posts = parseCapturedRequest(curlPosts)
+    assert.equal(posts.ok, true)
+    assert.equal(posts.ambiguous, false)
+    assert.equal(posts.slotKey, "old")
+    assert.equal(posts.slot.label, "Buscar tweets antigos")
+    assert.match(posts.slot.path, /UserOriginalsTimeline$/)
+    assert.equal(posts.slot.variables.userId, "{{user_id}}")
+    assert.equal(posts.slot.variables.cursor, "{{cursor}}")
+    assert.equal(posts.slot.variables.count, 40)
+    assert.equal(posts.slot.transactionId, "tid-posts")
+    assert.deepEqual(posts.slot.fieldToggles, { withPayments: false, withArticlePlainText: false })
+    assert.equal(JSON.stringify(posts.slot).includes("nao-usar"), false)
+    assert.equal(JSON.stringify(posts.slot).includes("csrf-colado"), false)
+    const postsPage = requestFromSlot(posts.slot, { userId: "42", cursor: "proxima" })
+    assert.match(postsPage.url, /UserOriginalsTimeline/)
+    assert.match(postsPage.url, /fieldToggles=/)
+    assert.match(postsPage.url, /%22cursor%22%3A%22proxima%22/)
+    assert.equal(postsPage.url.includes("CURSOR-DE-TESTE"), false)
+    assert.equal(postsPage.url.includes("111111111111111111"), false)
+
     const fetchDelete = fetchText("https://x.com/i/api/graphql/nxpZCY2K-I6QoFHAHeojFQ/DeleteTweet", {
         headers: {
             authorization: "Bearer apagar",

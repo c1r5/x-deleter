@@ -27,7 +27,7 @@ Sem transaction id no slot que for usado, o status fica `fail`, o log diz qual s
 A engrenagem abre Configurações Avançadas. No Chrome, na aba Rede, copie a requisição como fetch ou como cURL e cole na caixa. Analisar grava o slot quando reconhece o texto.
 
 - Uma busca de respostas (`UserRepliesTimeline` ou `UserTweetsAndReplies`) vai para Buscar respostas.
-- Uma busca `UserTweets` vai para Buscar tweets antigos.
+- Uma busca `UserTweets` ou `UserOriginalsTimeline` vai para Buscar tweets antigos.
 - Um `DeleteTweet` vai para Apagar tweet.
 
 A caixa ao lado do nome marca o slot que já tem transaction id. O clique no nome abre esse slot para edição. Guardar grava. Restaurar devolve aquele slot ao padrão do repositório. Restaurar tudo devolve os três.
@@ -52,7 +52,7 @@ Manter o fixado vem ligado e tenta pular o tweet que a página marca como fixado
 
 Só com link limita o lote da timeline a tweets que têm URL.
 
-Tweets antigos usa o slot Buscar tweets antigos. Sem um cURL de `UserTweets` nesse slot, a busca continua no endpoint de respostas, com as variáveis de tweets antigos.
+Tweets antigos usa o slot Buscar tweets antigos. Sem um cURL de `UserTweets` ou `UserOriginalsTimeline` nesse slot, a busca continua no endpoint de respostas, com as variáveis de tweets antigos.
 
 De e Até formam o intervalo, na meia-noite local, sem incluir o dia da borda. Um tweet anterior a De interrompe a paginação.
 
