@@ -128,6 +128,15 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.match(html, /\.wrap:hover/)
     assert.match(html, /\.quick:hover, \.setup:hover/)
     assert.match(html, />Analisar</)
+    assert.match(html, /grid-template-columns: 1fr 1fr/)
+    assert.match(html, /max-height: calc\(3 \* 24px \+ 16px\)/)
+    assert.match(html, /\.logs \{[^}]*height: 112px/)
+    assert.match(html, /\.logs \{[^}]*overflow: auto/)
+    const quickAt = html.indexOf('class="quick"')
+    const manualAt = html.indexOf('data-screen="manual"')
+    const progressAt = html.indexOf('class="progress"')
+    const logsAt = html.indexOf('class="logs"')
+    assert.equal(quickAt < manualAt && manualAt < progressAt && progressAt < logsAt, true)
 
     const analyzeButton = { textContent: "Analisar", disabled: false }
     const area = { value: "curl exemplo" }

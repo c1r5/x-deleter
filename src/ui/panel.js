@@ -17,8 +17,9 @@ const markup = `
     min-height: 0;
     display: flex;
     flex-direction: column;
+    gap: 12px;
     padding: 8px 16px 16px;
-    overflow: auto;
+    overflow: hidden;
     background: var(--bg);
     color: var(--text);
     color-scheme: var(--scheme);
@@ -27,7 +28,7 @@ const markup = `
     transition: background-color 0.2s ease;
   }
   .wrap:hover { background: color-mix(in srgb, var(--text) 5%, var(--bg)); }
-  .screen { display: none; flex-direction: column; gap: 12px; }
+  .screen { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; gap: 12px; overflow: auto; }
   .screen.on { display: flex; }
   header { display: flex; align-items: center; justify-content: space-between; min-height: 53px; }
   h2 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.2; min-width: 0; }
@@ -36,16 +37,19 @@ const markup = `
   button.icon svg { width: 20px; height: 20px; }
   a.back { display: inline-flex; align-items: center; gap: 2px; color: var(--accent); text-decoration: none; font-weight: 400; font-size: 17px; }
   a.back svg { width: 22px; height: 22px; flex: none; }
-  .logs { min-height: 96px; border: 1px solid var(--edge); border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.5; transition: background-color 0.2s ease; }
+  .logs { flex: none; height: 112px; overflow: auto; border: 1px solid var(--edge); border-radius: 16px; padding: 12px 14px; background: var(--surface); font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.5; transition: background-color 0.2s ease; }
   .logs:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
   .progress { height: 4px; border-radius: 999px; background: var(--line); overflow: hidden; }
   .progress > span { display: block; height: 100%; width: 0; background: var(--accent); }
   .status-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 15px; }
+  .meter { flex: none; }
   .status-row .k { color: var(--muted); }
   .pill { border: 1px solid var(--edge); border-radius: 999px; padding: 2px 10px; font-weight: 700; font-size: 13px; background: var(--surface); color: var(--accent); }
   .quick, .setup { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--edge); border-radius: 16px; padding: 12px 14px; background: var(--surface); transition: background-color 0.2s ease; }
   .quick:hover, .setup:hover { background: color-mix(in srgb, var(--text) 8%, var(--surface)); }
   .quick h3 { margin: 0; font-size: 15px; font-weight: 800; }
+  .marks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; max-height: calc(3 * 24px + 16px); overflow-y: auto; }
+  .marks label { min-width: 0; min-height: 24px; }
   label { display: flex; align-items: center; gap: 8px; font-size: 15px; }
   label.field, label.date { flex-direction: column; align-items: stretch; gap: 4px; font-size: 13px; color: var(--muted); }
   .dates { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -81,19 +85,16 @@ const markup = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M5.8 5.8l1.6 1.6M16.6 16.6l1.6 1.6M18.2 5.8l-1.6 1.6M7.4 16.6l-1.6 1.6"/></svg>
       </button>
     </header>
-    <div class="logs"></div>
-    <div>
-      <div class="progress"><span></span></div>
-      <div class="status-row"><span class="k">status</span> <span class="pill">idle</span></div>
-    </div>
     <section class="quick">
       <h3>Configurações rápidas</h3>
-      <label><input type="checkbox" data-field="fromArchive"> Do arquivo</label>
-      <label><input type="checkbox" data-field="unretweet" checked> Desfazer retweets</label>
-      <label><input type="checkbox" data-field="keepPinned" checked> Manter o fixado</label>
-      <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
-      <label><input type="checkbox" data-field="oldTweets"> Tweets antigos</label>
-      <label><input type="checkbox" data-field="reposts"> Reposts</label>
+      <div class="marks">
+        <label><input type="checkbox" data-field="fromArchive"> Do arquivo</label>
+        <label><input type="checkbox" data-field="unretweet" checked> Desfazer retweets</label>
+        <label><input type="checkbox" data-field="keepPinned" checked> Manter o fixado</label>
+        <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
+        <label><input type="checkbox" data-field="oldTweets"> Tweets antigos</label>
+        <label><input type="checkbox" data-field="reposts"> Reposts</label>
+      </div>
       <div class="dates">
         <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
         <label class="date">Até <input type="date" data-field="beforeDate" value="2026-10-30"></label>
@@ -141,6 +142,11 @@ const markup = `
       </div>
     </div>
   </section>
+  <div class="meter">
+    <div class="progress"><span></span></div>
+    <div class="status-row"><span class="k">status</span> <span class="pill">idle</span></div>
+  </div>
+  <div class="logs"></div>
 </div>`
 
 export function panelMarkup() {
