@@ -31,7 +31,7 @@ function fetchText(url, options) {
     return `fetch(${JSON.stringify(url)}, ${JSON.stringify(options, null, 2)});`
 }
 
-test("o parser grava fetch e cURL nos três slots", async () => {
+test("o parser grava fetch e cURL nos quatro slots", async () => {
     const repliesUrl = `https://x.com/i/api/graphql/xz348nziCm96wndJ1S0MUQ/UserRepliesTimeline?${query({
         userId: "42",
         count: 20,
@@ -169,6 +169,47 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     assert.equal(postsPage.url.includes("CURSOR-DE-TESTE"), false)
     assert.equal(postsPage.url.includes("111111111111111111"), false)
 
+    const repostsUrl = `https://x.com/i/api/graphql/q5tCz6UCo5FOK8DSqsjS2A/UserRepostsTimeline?${query({
+        userId: "111111111111111111",
+        count: 20,
+        includePromotedContent: true,
+        withVoice: true,
+    }, { rweb_video_screen_enabled: false })}&fieldToggles=${encodeURIComponent(JSON.stringify({ withPayments: false, withArticlePlainText: false }))}`
+    const curlReposts = [
+        `curl --url '${repostsUrl}' \\`,
+        "  -H 'authorization: Bearer reposts' \\",
+        "  -b 'ct0=nao-usar; auth_token=segredo' \\",
+        "  -H 'x-client-transaction-id: tid-reposts' \\",
+        "  -H 'x-csrf-token: csrf-colado'",
+    ].join("\n")
+    const reposts = parseCapturedRequest(curlReposts)
+    assert.equal(reposts.ok, true)
+    assert.equal(reposts.ambiguous, false)
+    assert.equal(reposts.slotKey, "reposts")
+    assert.equal(reposts.slot.label, "Buscar reposts")
+    assert.equal(reposts.slot.method, "GET")
+    assert.match(reposts.slot.path, /UserRepostsTimeline$/)
+    assert.equal(reposts.slot.variables.userId, "{{user_id}}")
+    assert.equal(reposts.slot.variables.count, 20)
+    assert.equal(reposts.slot.variables.cursor, "{{cursor}}")
+    assert.equal(reposts.slot.variables.withVoice, true)
+    assert.equal(reposts.slot.variables.withCommunity, undefined)
+    assert.equal(reposts.slot.transactionId, "tid-reposts")
+    assert.deepEqual(reposts.slot.fieldToggles, { withPayments: false, withArticlePlainText: false })
+    assert.equal(JSON.stringify(reposts.slot).includes("111111111111111111"), false)
+    assert.equal(JSON.stringify(reposts.slot).includes("nao-usar"), false)
+    assert.equal(JSON.stringify(reposts.slot).includes("segredo"), false)
+    assert.equal(JSON.stringify(reposts.slot).includes("csrf-colado"), false)
+    const repostsFirst = requestFromSlot(reposts.slot, { userId: "42" })
+    assert.equal(repostsFirst.method, "GET")
+    assert.match(repostsFirst.url, /UserRepostsTimeline/)
+    assert.match(repostsFirst.url, /fieldToggles=/)
+    assert.match(repostsFirst.url, /%22userId%22%3A%2242%22/)
+    assert.equal(repostsFirst.url.includes("cursor"), false)
+    assert.equal(repostsFirst.url.includes("111111111111111111"), false)
+    const repostsNext = requestFromSlot(reposts.slot, { userId: "42", cursor: "proxima" })
+    assert.match(repostsNext.url, /%22cursor%22%3A%22proxima%22/)
+
     const curlDelete = [
         "curl --url 'https://x.com/i/api/graphql/nxpZCY2K-I6QoFHAHeojFQ/DeleteTweet' \\",
         "  -H 'authorization: Bearer apagar' \\",
@@ -264,14 +305,18 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     const panel = { log(line) { logs.push(line) } }
     const savedReplies = analyze(fetchReplies, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
     const savedOld = analyze(curlOld, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
+    const savedReposts = analyze(curlReposts, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
     const savedDelete = analyze(curlDelete, { panel, saveSlot: (key, slot) => saveSlot(storage, key, slot) })
     assert.equal(savedReplies.slot.label, "Buscar respostas")
     assert.equal(savedOld.slot.label, "Buscar tweets antigos")
+    assert.equal(savedReposts.slot.label, "Buscar reposts")
     assert.equal(savedDelete.slot.label, "Apagar tweet")
     assert.match(logs.join("\n"), /Buscar respostas/)
     const stored = JSON.parse(storage.getItem(configKey))
     assert.equal(stored.replies.transactionId, "tid-respostas")
     assert.equal(stored.old.transactionId, "tid-antigos")
+    assert.equal(stored.reposts.transactionId, "tid-reposts")
+    assert.equal(stored.reposts.variables.userId, "{{user_id}}")
     assert.equal(stored.delete.transactionId, "tid-apagar-curl")
     assert.equal(stored.delete.body.queryId, "nxpZCY2K-I6QoFHAHeojFQ")
     assert.equal(stored.delete.body.variables.dark_request, undefined)
@@ -306,11 +351,48 @@ test("o parser grava fetch e cURL nos três slots", async () => {
     assert.equal(calls[0].init.body.includes("VaenaVgh5q5ih7kvyVjgtg"), false)
     assert.match(calls[0].url, /\/nxpZCY2K-I6QoFHAHeojFQ\/DeleteTweet/)
 
+    const repostCalls = []
+    const reposted = await runDeletion({
+        options: { ...defaultOptions(), reposts: true },
+        slots: loadSlots(storage),
+        env: {
+            userId: "42",
+            username: "conta",
+            csrf: "csrf-do-cookie",
+            secChUa: "\"Chromium\";v=\"120\"",
+            acceptLanguage: "pt-BR",
+            language: "pt",
+        },
+        fetch: async (url, init) => {
+            repostCalls.push({ url, init })
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    data: { user: { result: { timeline: { timeline: { instructions: [{ type: "TimelineAddEntries", entries: [] }] } } } } },
+                }),
+            }
+        },
+        sleep: async () => {},
+        log() {},
+        readArchive: async () => "",
+    })
+    assert.equal(reposted.status, "done")
+    assert.match(repostCalls[0].url, /UserRepostsTimeline/)
+    assert.match(repostCalls[0].url, /%22userId%22%3A%2242%22/)
+    assert.equal(repostCalls[0].url.includes("cursor"), false)
+    assert.equal(repostCalls[0].url.includes("111111111111111111"), false)
+    assert.equal(repostCalls[0].init.headers["x-client-transaction-id"], "tid-reposts")
+    assert.equal(repostCalls[0].init.headers["x-csrf-token"], "csrf-do-cookie")
+    assert.equal(repostCalls[0].init.referrer, "https://x.com/conta/reposts")
+
     const html = panelMarkup()
     assert.match(html, /Configurações Avançadas/)
     assert.match(html, />Analisar</)
     assert.match(html, /Buscar respostas/)
     assert.match(html, /Buscar tweets antigos/)
+    assert.match(html, /Buscar reposts/)
+    assert.match(html, /data-field="reposts"/)
     assert.match(html, /Apagar tweet/)
     assert.match(html, /M15 19 L8 12 L15 5/)
     assert.match(html, /Tweet deleter/)

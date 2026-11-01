@@ -9,6 +9,7 @@ export function optionsFromFields(fields) {
         keepPinned: Boolean(fields.keepPinned),
         urlsOnly: Boolean(fields.urlsOnly),
         oldTweets: Boolean(fields.oldTweets),
+        reposts: Boolean(fields.reposts),
         keywords: list(fields.keywords),
         ignoreIds: list(fields.ignoreIds),
         onlyIds: list(fields.onlyIds),

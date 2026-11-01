@@ -28,9 +28,10 @@ A engrenagem abre Configurações Avançadas. No Chrome, na aba Rede, copie a re
 
 - Uma busca de respostas (`UserRepliesTimeline` ou `UserTweetsAndReplies`) vai para Buscar respostas.
 - Uma busca `UserTweets` ou `UserOriginalsTimeline` vai para Buscar tweets antigos.
+- Uma busca `UserRepostsTimeline` vai para Buscar reposts.
 - Um `DeleteTweet` vai para Apagar tweet.
 
-A caixa ao lado do nome marca o slot que já tem transaction id. O clique no nome abre esse slot para edição. Guardar grava. Restaurar devolve aquele slot ao padrão do repositório. Restaurar tudo devolve os três.
+A caixa ao lado do nome marca o slot que já tem transaction id. O clique no nome abre esse slot para edição. Guardar grava. Restaurar devolve aquele slot ao padrão do repositório. Restaurar tudo devolve os quatro.
 
 O cookie colado é descartado. O `x-csrf-token` enviado é o `ct0` da página na hora do envio.
 
@@ -53,6 +54,8 @@ Manter o fixado vem ligado e tenta pular o tweet que a página marca como fixado
 Só com link limita o lote da timeline a tweets que têm URL.
 
 Tweets antigos usa o slot Buscar tweets antigos. Sem um cURL de `UserTweets` ou `UserOriginalsTimeline` nesse slot, a busca continua no endpoint de respostas, com as variáveis de tweets antigos.
+
+Reposts usa o slot Buscar reposts (`UserRepostsTimeline`). Ligado junto com Tweets antigos, a busca fica nesse slot. A primeira página sai sem cursor. As seguintes mandam o cursor da página anterior.
 
 De e Até formam o intervalo, na meia-noite local, sem incluir o dia da borda. Um tweet anterior a De interrompe a paginação.
 

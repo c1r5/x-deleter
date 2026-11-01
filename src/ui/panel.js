@@ -93,6 +93,7 @@ const markup = `
       <label><input type="checkbox" data-field="keepPinned" checked> Manter o fixado</label>
       <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
       <label><input type="checkbox" data-field="oldTweets"> Tweets antigos</label>
+      <label><input type="checkbox" data-field="reposts"> Reposts</label>
       <div class="dates">
         <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
         <label class="date">Até <input type="date" data-field="beforeDate" value="2026-10-30"></label>
@@ -113,6 +114,7 @@ const markup = `
     <ul class="setup">
       <li><input type="checkbox" disabled data-ready="replies"> <button class="name" type="button" data-slot="replies">Buscar respostas</button></li>
       <li><input type="checkbox" disabled data-ready="old"> <button class="name" type="button" data-slot="old">Buscar tweets antigos</button></li>
+      <li><input type="checkbox" disabled data-ready="reposts"> <button class="name" type="button" data-slot="reposts">Buscar reposts</button></li>
       <li><input type="checkbox" disabled data-ready="delete"> <button class="name" type="button" data-slot="delete">Apagar tweet</button></li>
     </ul>
     <div><button class="primary" type="button" data-action="restore-all">Restaurar tudo</button></div>
@@ -227,7 +229,7 @@ export function mountPanel(document, view, handlers) {
 
     const slots = handlers.slots ? handlers.slots() : null
     if (slots) {
-        for (const key of ["replies", "old", "delete"]) {
+        for (const key of ["replies", "old", "reposts", "delete"]) {
             const box = shadow.querySelector(`[data-ready="${key}"]`)
             if (box) box.checked = Boolean(slots[key] && slots[key].transactionId)
         }
@@ -313,7 +315,7 @@ export function mountPanel(document, view, handlers) {
         handlers.restoreAll()
         pending = null
         const slots = handlers.slots()
-        for (const key of ["replies", "old", "delete"]) markReady(key, Boolean(slots[key].transactionId))
+        for (const key of ["replies", "old", "reposts", "delete"]) markReady(key, Boolean(slots[key].transactionId))
     })
     shadow.querySelector(".screen.main .primary").addEventListener("click", () => {
         const fields = {}

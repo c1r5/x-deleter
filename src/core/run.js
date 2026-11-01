@@ -3,7 +3,14 @@ import { requestFromSlot, requestHeaders } from "./request.js"
 import { collectArchive, entriesFromPayload, parseArchiveText, scanEntries } from "./select.js"
 
 function listSlot(options, slots) {
+    if (options.reposts) return slots.reposts
     return options.oldTweets ? slots.old : slots.replies
+}
+
+function referrerFor(slot, username) {
+    const operation = String(slot.path || "").split("/").pop()
+    const leaf = operation === "UserRepostsTimeline" ? "reposts" : "with_replies"
+    return `https://x.com/${username}/${leaf}`
 }
 
 function missingSlot(options, slots) {
@@ -87,7 +94,7 @@ async function deleteTimeline(ctx) {
         const built = requestFromSlot(slot, { userId: ctx.env.userId, cursor })
         const data = await fetchJson(built.url, {
             headers: headersFor(slot, ctx),
-            referrer: `https://x.com/${ctx.env.username}/with_replies`,
+            referrer: referrerFor(slot, ctx.env.username),
             referrerPolicy: "strict-origin-when-cross-origin",
             body: null,
             method: "GET",

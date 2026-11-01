@@ -1,4 +1,5 @@
 const repliesPath = "/i/api/graphql/xz348nziCm96wndJ1S0MUQ/UserRepliesTimeline"
+const repostsPath = "/i/api/graphql/q5tCz6UCo5FOK8DSqsjS2A/UserRepostsTimeline"
 const deletePath = "/i/api/graphql/nxpZCY2K-I6QoFHAHeojFQ/DeleteTweet"
 const deleteQueryId = "VaenaVgh5q5ih7kvyVjgtg"
 
@@ -49,6 +50,15 @@ function applyValue(value, ctx) {
 }
 
 function variablesTemplate(kind) {
+    if (kind === "reposts") {
+        return {
+            userId: "{{user_id}}",
+            count: 20,
+            cursor: "{{cursor}}",
+            includePromotedContent: true,
+            withVoice: true,
+        }
+    }
     const variables = { userId: "{{user_id}}", count: 20, cursor: "{{cursor}}" }
     variables.includePromotedContent = true
     if (kind === "old") variables.withQuickPromoteEligibilityTweetFields = true
@@ -69,6 +79,18 @@ export function defaultSlotRequest(kind) {
                 variables: { tweet_id: "{{tweet_id}}", dark_request: false },
                 queryId: deleteQueryId,
             },
+            contentType: "application/json",
+            successStatus: 200,
+        }
+    }
+    if (kind === "reposts") {
+        return {
+            method: "GET",
+            path: repostsPath,
+            variables: variablesTemplate(kind),
+            features: featuresFor("old"),
+            fieldToggles: { withPayments: false, withArticlePlainText: false },
+            body: null,
             contentType: "application/json",
             successStatus: 200,
         }

@@ -1,6 +1,7 @@
 const slotLabels = {
     replies: "Buscar respostas",
     old: "Buscar tweets antigos",
+    reposts: "Buscar reposts",
     delete: "Apagar tweet",
 }
 

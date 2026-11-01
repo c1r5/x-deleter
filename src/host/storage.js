@@ -19,6 +19,7 @@ export function loadSlots(storage) {
     return {
         replies: saved.replies || defaults.replies,
         old: saved.old || defaults.old,
+        reposts: saved.reposts || defaults.reposts,
         delete: saved.delete || defaults.delete,
     }
 }

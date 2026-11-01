@@ -9,6 +9,7 @@ export function defaultOptions() {
         keepPinned: true,
         urlsOnly: false,
         oldTweets: false,
+        reposts: false,
         keywords: [],
         ignoreIds: [],
         onlyIds: [],
@@ -33,6 +34,7 @@ export function defaultSlots() {
     return {
         replies: slot("Buscar respostas", "replies"),
         old: slot("Buscar tweets antigos", "old"),
+        reposts: slot("Buscar reposts", "reposts"),
         delete: slot("Apagar tweet", "delete"),
     }
 }

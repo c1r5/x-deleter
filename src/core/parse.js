@@ -3,12 +3,14 @@ const slotByOperation = {
     UserTweetsAndReplies: "replies",
     UserTweets: "old",
     UserOriginalsTimeline: "old",
+    UserRepostsTimeline: "reposts",
     DeleteTweet: "delete",
 }
 
 const labels = {
     replies: "Buscar respostas",
     old: "Buscar tweets antigos",
+    reposts: "Buscar reposts",
     delete: "Apagar tweet",
 }
 
@@ -133,6 +135,10 @@ function finish(urlString, options) {
     })
     const ambiguous = candidates.length > 0
     const method = String(options.method || (body ? "POST" : "GET")).toUpperCase()
+    let nextVariables = ambiguous || !variables ? variables : substitute(variables)
+    if (!ambiguous && nextVariables && slotKey && slotKey !== "delete" && !Object.hasOwn(nextVariables, "cursor")) {
+        nextVariables = { ...nextVariables, cursor: "{{cursor}}" }
+    }
     return {
         ok: true,
         error: "",
@@ -144,7 +150,7 @@ function finish(urlString, options) {
             label: labels[slotKey] || "",
             method,
             path,
-            variables: ambiguous || !variables ? variables : substitute(variables),
+            variables: nextVariables,
             features: ambiguous || !features ? features : substitute(features),
             fieldToggles: ambiguous || !fieldToggles ? fieldToggles : substitute(fieldToggles),
             body: ambiguous || !body ? body : substitute(body),

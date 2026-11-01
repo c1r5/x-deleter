@@ -131,6 +131,7 @@ test("o preenchimento manual grava o mesmo slot que o parser", () => {
     restoreAll(storage)
     assert.deepEqual(loadSlots(storage).replies, defaultSlots().replies)
     assert.deepEqual(loadSlots(storage).old, defaultSlots().old)
+    assert.deepEqual(loadSlots(storage).reposts, defaultSlots().reposts)
     assert.deepEqual(loadSlots(storage).delete, defaultSlots().delete)
 
     const html = panelMarkup()
@@ -140,7 +141,7 @@ test("o preenchimento manual grava o mesmo slot que o parser", () => {
     assert.match(html, /Variáveis/)
     assert.match(html, /Features/)
     assert.match(html, /Corpo/)
-    assert.deepEqual([...html.matchAll(/data-slot="([^"]+)"/g)].map((match) => match[1]), ["replies", "old", "delete"])
+    assert.deepEqual([...html.matchAll(/data-slot="([^"]+)"/g)].map((match) => match[1]), ["replies", "old", "reposts", "delete"])
 
     const built = spawnSync(process.execPath, ["scripts/build.mjs"], { cwd: root, encoding: "utf8" })
     assert.equal(built.status, 0, built.stderr)

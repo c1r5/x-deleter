@@ -11,6 +11,7 @@ function defaultOptions() {
         keepPinned: true,
         urlsOnly: false,
         oldTweets: false,
+        reposts: false,
         keywords: [],
         ignoreIds: [],
         onlyIds: [],
@@ -35,6 +36,7 @@ function defaultSlots() {
     return {
         replies: slot("Buscar respostas", "replies"),
         old: slot("Buscar tweets antigos", "old"),
+        reposts: slot("Buscar reposts", "reposts"),
         delete: slot("Apagar tweet", "delete"),
     }
 }
@@ -171,6 +173,7 @@ function scanEntries(entries, options, userId) {
 }
 
 const repliesPath = "/i/api/graphql/xz348nziCm96wndJ1S0MUQ/UserRepliesTimeline"
+const repostsPath = "/i/api/graphql/q5tCz6UCo5FOK8DSqsjS2A/UserRepostsTimeline"
 const deletePath = "/i/api/graphql/nxpZCY2K-I6QoFHAHeojFQ/DeleteTweet"
 const deleteQueryId = "VaenaVgh5q5ih7kvyVjgtg"
 
@@ -221,6 +224,15 @@ function applyValue(value, ctx) {
 }
 
 function variablesTemplate(kind) {
+    if (kind === "reposts") {
+        return {
+            userId: "{{user_id}}",
+            count: 20,
+            cursor: "{{cursor}}",
+            includePromotedContent: true,
+            withVoice: true,
+        }
+    }
     const variables = { userId: "{{user_id}}", count: 20, cursor: "{{cursor}}" }
     variables.includePromotedContent = true
     if (kind === "old") variables.withQuickPromoteEligibilityTweetFields = true
@@ -241,6 +253,18 @@ function defaultSlotRequest(kind) {
                 variables: { tweet_id: "{{tweet_id}}", dark_request: false },
                 queryId: deleteQueryId,
             },
+            contentType: "application/json",
+            successStatus: 200,
+        }
+    }
+    if (kind === "reposts") {
+        return {
+            method: "GET",
+            path: repostsPath,
+            variables: variablesTemplate(kind),
+            features: featuresFor("old"),
+            fieldToggles: { withPayments: false, withArticlePlainText: false },
+            body: null,
             contentType: "application/json",
             successStatus: 200,
         }
@@ -312,12 +336,14 @@ const slotByOperation = {
     UserTweetsAndReplies: "replies",
     UserTweets: "old",
     UserOriginalsTimeline: "old",
+    UserRepostsTimeline: "reposts",
     DeleteTweet: "delete",
 }
 
 const labels = {
     replies: "Buscar respostas",
     old: "Buscar tweets antigos",
+    reposts: "Buscar reposts",
     delete: "Apagar tweet",
 }
 
@@ -442,6 +468,10 @@ function finish(urlString, options) {
     })
     const ambiguous = candidates.length > 0
     const method = String(options.method || (body ? "POST" : "GET")).toUpperCase()
+    let nextVariables = ambiguous || !variables ? variables : substitute(variables)
+    if (!ambiguous && nextVariables && slotKey && slotKey !== "delete" && !Object.hasOwn(nextVariables, "cursor")) {
+        nextVariables = { ...nextVariables, cursor: "{{cursor}}" }
+    }
     return {
         ok: true,
         error: "",
@@ -453,7 +483,7 @@ function finish(urlString, options) {
             label: labels[slotKey] || "",
             method,
             path,
-            variables: ambiguous || !variables ? variables : substitute(variables),
+            variables: nextVariables,
             features: ambiguous || !features ? features : substitute(features),
             fieldToggles: ambiguous || !fieldToggles ? fieldToggles : substitute(fieldToggles),
             body: ambiguous || !body ? body : substitute(body),
@@ -518,7 +548,14 @@ function parseCapturedRequest(text) {
 
 
 function listSlot(options, slots) {
+    if (options.reposts) return slots.reposts
     return options.oldTweets ? slots.old : slots.replies
+}
+
+function referrerFor(slot, username) {
+    const operation = String(slot.path || "").split("/").pop()
+    const leaf = operation === "UserRepostsTimeline" ? "reposts" : "with_replies"
+    return `https://x.com/${username}/${leaf}`
 }
 
 function missingSlot(options, slots) {
@@ -602,7 +639,7 @@ async function deleteTimeline(ctx) {
         const built = requestFromSlot(slot, { userId: ctx.env.userId, cursor })
         const data = await fetchJson(built.url, {
             headers: headersFor(slot, ctx),
-            referrer: `https://x.com/${ctx.env.username}/with_replies`,
+            referrer: referrerFor(slot, ctx.env.username),
             referrerPolicy: "strict-origin-when-cross-origin",
             body: null,
             method: "GET",
@@ -715,6 +752,7 @@ function optionsFromFields(fields) {
         keepPinned: Boolean(fields.keepPinned),
         urlsOnly: Boolean(fields.urlsOnly),
         oldTweets: Boolean(fields.oldTweets),
+        reposts: Boolean(fields.reposts),
         keywords: list(fields.keywords),
         ignoreIds: list(fields.ignoreIds),
         onlyIds: list(fields.onlyIds),
@@ -769,6 +807,7 @@ function analyze(text, deps) {
 const slotLabels = {
     replies: "Buscar respostas",
     old: "Buscar tweets antigos",
+    reposts: "Buscar reposts",
     delete: "Apagar tweet",
 }
 
@@ -983,6 +1022,7 @@ const markup = `
       <label><input type="checkbox" data-field="keepPinned" checked> Manter o fixado</label>
       <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
       <label><input type="checkbox" data-field="oldTweets"> Tweets antigos</label>
+      <label><input type="checkbox" data-field="reposts"> Reposts</label>
       <div class="dates">
         <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
         <label class="date">Até <input type="date" data-field="beforeDate" value="2026-10-30"></label>
@@ -1003,6 +1043,7 @@ const markup = `
     <ul class="setup">
       <li><input type="checkbox" disabled data-ready="replies"> <button class="name" type="button" data-slot="replies">Buscar respostas</button></li>
       <li><input type="checkbox" disabled data-ready="old"> <button class="name" type="button" data-slot="old">Buscar tweets antigos</button></li>
+      <li><input type="checkbox" disabled data-ready="reposts"> <button class="name" type="button" data-slot="reposts">Buscar reposts</button></li>
       <li><input type="checkbox" disabled data-ready="delete"> <button class="name" type="button" data-slot="delete">Apagar tweet</button></li>
     </ul>
     <div><button class="primary" type="button" data-action="restore-all">Restaurar tudo</button></div>
@@ -1117,7 +1158,7 @@ function mountPanel(document, view, handlers) {
 
     const slots = handlers.slots ? handlers.slots() : null
     if (slots) {
-        for (const key of ["replies", "old", "delete"]) {
+        for (const key of ["replies", "old", "reposts", "delete"]) {
             const box = shadow.querySelector(`[data-ready="${key}"]`)
             if (box) box.checked = Boolean(slots[key] && slots[key].transactionId)
         }
@@ -1203,7 +1244,7 @@ function mountPanel(document, view, handlers) {
         handlers.restoreAll()
         pending = null
         const slots = handlers.slots()
-        for (const key of ["replies", "old", "delete"]) markReady(key, Boolean(slots[key].transactionId))
+        for (const key of ["replies", "old", "reposts", "delete"]) markReady(key, Boolean(slots[key].transactionId))
     })
     shadow.querySelector(".screen.main .primary").addEventListener("click", () => {
         const fields = {}
@@ -1251,6 +1292,7 @@ function loadSlots(storage) {
     return {
         replies: saved.replies || defaults.replies,
         old: saved.old || defaults.old,
+        reposts: saved.reposts || defaults.reposts,
         delete: saved.delete || defaults.delete,
     }
 }
