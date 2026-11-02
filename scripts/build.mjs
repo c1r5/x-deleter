@@ -28,7 +28,32 @@ const body = files.map((file) => {
         .replace(/^export /gm, "")
 }).join("\n")
 
-const script = `// Cole este arquivo no console de x.com, com a conta aberta.\n(async () => {\n${body}\n})()\n`
+const header = `// ==UserScript==
+// @name         Tweet deleter
+// @namespace    https://github.com/c1r5/x-deleter
+// @version      1
+// @description  Apaga os próprios tweets no x.com
+// @author       c1r5
+// @match        https://x.com/*
+// @match        https://twitter.com/*
+// @updateURL    https://raw.githubusercontent.com/c1r5/x-deleter/main/x-deleter.js
+// @downloadURL  https://raw.githubusercontent.com/c1r5/x-deleter/main/x-deleter.js
+// @grant        none
+// @run-at       document-idle
+// @noframes
+// ==/UserScript==
+// Cole este arquivo no console de x.com, com a conta aberta, ou instale no Tampermonkey.
+`
+const script = `${header}(async () => {
+const bootDeleter = async () => {
+if (document.documentElement.dataset.xDeleter === "on") return
+document.documentElement.dataset.xDeleter = "on"
+${body}
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { bootDeleter() }, { once: true })
+else bootDeleter()
+})()
+`
 const out = join(root, "x-deleter.js")
 writeFileSync(out, script)
 const check = spawnSync(process.execPath, ["--check", out], { encoding: "utf8" })

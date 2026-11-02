@@ -1,5 +1,22 @@
-// Cole este arquivo no console de x.com, com a conta aberta.
+// ==UserScript==
+// @name         Tweet deleter
+// @namespace    https://github.com/c1r5/x-deleter
+// @version      1
+// @description  Apaga os próprios tweets no x.com
+// @author       c1r5
+// @match        https://x.com/*
+// @match        https://twitter.com/*
+// @updateURL    https://raw.githubusercontent.com/c1r5/x-deleter/main/x-deleter.js
+// @downloadURL  https://raw.githubusercontent.com/c1r5/x-deleter/main/x-deleter.js
+// @grant        none
+// @run-at       document-idle
+// @noframes
+// ==/UserScript==
+// Cole este arquivo no console de x.com, com a conta aberta, ou instale no Tampermonkey.
 (async () => {
+const bootDeleter = async () => {
+if (document.documentElement.dataset.xDeleter === "on") return
+document.documentElement.dataset.xDeleter = "on"
 
 
 const publicBearer = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
@@ -1779,4 +1796,7 @@ mountPanel(document, window, {
     },
 })
 
+}
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { bootDeleter() }, { once: true })
+else bootDeleter()
 })()

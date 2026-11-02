@@ -1,6 +1,6 @@
 # x-deleter
 
-Apaga os próprios tweets a partir do console de x.com, com a conta já aberta.
+Apaga os próprios tweets no x.com, com a conta já aberta. O mesmo `x-deleter.js` cola no console ou entra no Tampermonkey.
 
 O plano está na issue #1. Quando isso virar extensão, este texto ganha o passo de instalar.
 
@@ -19,6 +19,14 @@ O comando grava `x-deleter.js`. Não há dependência para instalar.
 Abra o seu perfil em x.com, logado. O nome da conta sai do endereço da página. O id sai do cookie `twid`.
 
 Abra o console, cole o conteúdo de `x-deleter.js` e tecle Enter. O Chrome pede `allow pasting` antes de aceitar um colar grande. O painel ocupa a coluna da direita do X e acompanha a largura dela. Quando o X esconde essa coluna, o painel vai para o topo da coluna principal. As cores seguem o tema claro ou Lights out.
+
+## Tampermonkey
+
+No Tampermonkey, crie um script e cole o `x-deleter.js`. O cabeçalho limita o script a `https://x.com/*` e `https://twitter.com/*`, e espera a página pronta. A atualização aponta para o arquivo na `main` do repositório.
+
+`@grant none` mantém o script na página. Ele lê o cookie `ct0` e usa o `fetch` da conta aberta. Com outro `@grant`, a requisição sai fora dessa sessão.
+
+Com o x.com logado, o painel entra na coluna da direita quando ela aparece. Uma segunda execução no mesmo documento não cria outro painel.
 
 ## Configurar as requisições
 
