@@ -1,4 +1,4 @@
-import { todayStamp } from "../core/options.js"
+import { daysAgoStamp, todayStamp } from "../core/options.js"
 
 function list(value) {
     return String(value || "").split(",").map((item) => item.trim()).filter(Boolean)
@@ -15,7 +15,7 @@ export function optionsFromFields(fields) {
         keywords: list(fields.keywords),
         ignoreIds: list(fields.ignoreIds),
         onlyIds: list(fields.onlyIds),
-        afterDate: fields.afterDate || "1900-01-01",
+        afterDate: fields.afterDate || daysAgoStamp(2),
         beforeDate: fields.beforeDate || todayStamp(),
     }
 }

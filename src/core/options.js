@@ -8,6 +8,10 @@ export function todayStamp(now = new Date()) {
     return `${now.getFullYear()}-${month}-${day}`
 }
 
+export function daysAgoStamp(days, now = new Date()) {
+    return todayStamp(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days))
+}
+
 export function defaultOptions() {
     return {
         fromArchive: false,
@@ -19,7 +23,7 @@ export function defaultOptions() {
         keywords: [],
         ignoreIds: [],
         onlyIds: [],
-        afterDate: "1900-01-01",
+        afterDate: daysAgoStamp(2),
         beforeDate: todayStamp(),
     }
 }

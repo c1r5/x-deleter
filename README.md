@@ -65,7 +65,7 @@ Só com link limita o lote da timeline a tweets que têm URL.
 
 Na timeline, o retweet entra no lote. No arquivo entram o texto que começa com `RT ` e o resto. Resposta para a própria conta não entra no arquivo.
 
-Até começa no dia de hoje. De e Até formam o intervalo, na meia-noite local, sem incluir o dia da borda. Um tweet anterior a De interrompe a paginação.
+De começa dois dias atrás. Até começa no dia de hoje. Os dois formam o intervalo, na meia-noite local, sem incluir o dia da borda. Um tweet anterior a De interrompe a paginação.
 
 Palavras são separadas por vírgula. Qualquer uma basta. Campo vazio vale para todos os textos.
 
@@ -75,7 +75,7 @@ Apagar só estes IDs não percorre a timeline. A busca devolve essa lista, cada 
 
 ## O lote
 
-Buscar muda o status para `buscando` e abre a lista no centro da tela, com o fundo e o texto do tema da página. A lista já nasce com altura para 10 linhas. Da 11ª em diante, ela rola. O marcador à esquerda de Tipo marca ou desmarca todas as linhas. Enquanto a busca corre, um spinner fica ao lado do título. Ele some quando a busca termina. As linhas entram conforme a página chega, já marcadas. A timeline consulta cada slot de busca que tem transaction id, nesta ordem: respostas, tweets antigos, reposts. O mesmo id entra uma vez. A primeira página de cada slot sai sem cursor. As seguintes mandam o cursor da página anterior. Fechar interrompe a busca. Essa ação não apaga. Sem transaction id nos três slots, o modal não abre e o log cita Buscar respostas. No fim da busca o status fica `done`.
+Buscar muda o status para `buscando` e abre a lista no centro da tela, com o fundo e o texto do tema da página. A lista já nasce com altura para 10 linhas. Da 11ª em diante, ela rola. O marcador à esquerda de Tipo marca ou desmarca todas as linhas. Enquanto a busca corre, um spinner fica ao lado do título. Ele some quando a busca termina. Se nenhuma linha entrou, a lista mostra "Nenhum tweet encontrado" na cor secundária da página. As linhas entram conforme a página chega, já marcadas. A timeline consulta cada slot de busca que tem transaction id, nesta ordem: respostas, tweets antigos, reposts. O mesmo id entra uma vez. A primeira página de cada slot sai sem cursor. As seguintes mandam o cursor da página anterior. Fechar interrompe a busca. Essa ação não apaga. Sem transaction id nos três slots, o modal não abre e o log cita Buscar respostas. No fim da busca o status fica `done`.
 
 Executar fica no canto inferior esquerdo do modal e só liga quando a busca termina. Ao lado estão Nuke, unretweet, delete posts e delete replies. As três últimas começam ligadas. Nuke começa desligado. Ligar Nuke desliga as outras. Ligar qualquer uma das outras desliga Nuke. Executar usa o slot Apagar tweet nas linhas marcadas, na ordem unretweet, delete replies, delete posts. Entre itens do mesmo tipo há 1 s. No 429 a espera começa em 1 minuto e dobra até 5 minutos. Outro erro HTTP espera 10 s vezes a tentativa, até 8 vezes. Entre tipos há 30 s, pulados quando o tipo seguinte não tem linha. O status da execução é `executando`, e no fim `done`. `fail` cobre slot sem transaction id, arquivo ausente, nada selecionado ou tentativas esgotadas.
 

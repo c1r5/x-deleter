@@ -27,6 +27,10 @@ function todayStamp(now = new Date()) {
     return `${now.getFullYear()}-${month}-${day}`
 }
 
+function daysAgoStamp(days, now = new Date()) {
+    return todayStamp(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days))
+}
+
 function defaultOptions() {
     return {
         fromArchive: false,
@@ -38,7 +42,7 @@ function defaultOptions() {
         keywords: [],
         ignoreIds: [],
         onlyIds: [],
-        afterDate: "1900-01-01",
+        afterDate: daysAgoStamp(2),
         beforeDate: todayStamp(),
     }
 }
@@ -955,7 +959,7 @@ function optionsFromFields(fields) {
         keywords: list(fields.keywords),
         ignoreIds: list(fields.ignoreIds),
         onlyIds: list(fields.onlyIds),
-        afterDate: fields.afterDate || "1900-01-01",
+        afterDate: fields.afterDate || daysAgoStamp(2),
         beforeDate: fields.beforeDate || todayStamp(),
     }
 }
@@ -1173,6 +1177,8 @@ const modalChrome = `
   @keyframes spin { to { transform: rotate(1turn); } }
   @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
   .sheet { overflow: auto; height: calc(11 * 42px); flex: none; }
+  .empty { display: none; height: 100%; margin: 0; align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 15px; }
+  .empty.on { display: flex; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { text-align: left; height: 20px; padding: 8px 12px; border-top: 1px solid var(--edge, color-mix(in srgb, var(--text) 22%, var(--bg))); vertical-align: top; line-height: 20px; }
   th { font-size: 13px; color: var(--muted); font-weight: 700; position: sticky; top: 0; background: var(--bg); z-index: 1; }
@@ -1193,6 +1199,7 @@ const modalChrome = `
       <button class="close" type="button" data-action="close">Fechar</button>
     </header>
     <div class="sheet">
+      <p class="empty">Nenhum tweet encontrado</p>
       <table>
         <thead><tr><th><input type="checkbox" data-action="all" checked aria-label="Marcar tudo"></th><th>Tipo</th><th>Data</th><th>Texto</th></tr></thead>
         <tbody></tbody>
@@ -1234,6 +1241,13 @@ function openSearchModal(document, theme, onExecute) {
     const execute = shadow.querySelector("[data-action=execute]")
     const all = shadow.querySelector("[data-action=all]")
     const spinner = shadow.querySelector(".spinner")
+    const empty = shadow.querySelector(".empty")
+    const table = shadow.querySelector("table")
+    function paintEmpty() {
+        const show = spinner.hidden && rows.length === 0
+        empty.classList.toggle("on", show)
+        table.hidden = show
+    }
     function paintAll() {
         const boxes = body.querySelectorAll('input[type="checkbox"]')
         const total = boxes.length
@@ -1251,6 +1265,7 @@ function openSearchModal(document, theme, onExecute) {
         stopped: false,
         enable() {
             spinner.hidden = true
+            paintEmpty()
             if (!api.stopped) execute.disabled = false
         },
         addTweet(tweet) {
@@ -1278,6 +1293,7 @@ function openSearchModal(document, theme, onExecute) {
             row.append(pick, type, date, text)
             body.append(row)
             paintAll()
+            paintEmpty()
         },
         close() {
             api.stopped = true
@@ -1408,7 +1424,7 @@ const markup = `
         <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
       </div>
       <div class="dates">
-        <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
+        <label class="date">De <input type="date" data-field="afterDate"></label>
         <label class="date">Até <input type="date" data-field="beforeDate"></label>
       </div>
       <label class="field">Palavras <input type="text" data-field="keywords"></label>
@@ -1483,6 +1499,7 @@ function mountPanel(document, view, handlers) {
     const host = document.createElement("div")
     const shadow = host.attachShadow({ mode: "open" })
     shadow.innerHTML = markup
+    shadow.querySelector("[data-field=afterDate]").value = daysAgoStamp(2)
     shadow.querySelector("[data-field=beforeDate]").value = todayStamp()
     const root = shadow.querySelector(".wrap")
     const logs = shadow.querySelector(".logs")

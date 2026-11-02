@@ -1,4 +1,4 @@
-import { todayStamp } from "../core/options.js"
+import { daysAgoStamp, todayStamp } from "../core/options.js"
 import { analyze } from "./capture.js"
 import { openSlot, presentManual, slotFromForm } from "./manual.js"
 import { watchPlacement } from "./place.js"
@@ -96,7 +96,7 @@ const markup = `
         <label><input type="checkbox" data-field="urlsOnly"> Só com link</label>
       </div>
       <div class="dates">
-        <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
+        <label class="date">De <input type="date" data-field="afterDate"></label>
         <label class="date">Até <input type="date" data-field="beforeDate"></label>
       </div>
       <label class="field">Palavras <input type="text" data-field="keywords"></label>
@@ -171,6 +171,7 @@ export function mountPanel(document, view, handlers) {
     const host = document.createElement("div")
     const shadow = host.attachShadow({ mode: "open" })
     shadow.innerHTML = markup
+    shadow.querySelector("[data-field=afterDate]").value = daysAgoStamp(2)
     shadow.querySelector("[data-field=beforeDate]").value = todayStamp()
     const root = shadow.querySelector(".wrap")
     const logs = shadow.querySelector(".logs")

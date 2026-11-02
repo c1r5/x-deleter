@@ -103,6 +103,7 @@ function slotsWithTid() {
 
 test("percorre a timeline, o arquivo e apaga", async () => {
     const options = defaultOptions()
+    options.afterDate = "1900-01-01"
     options.keywords = ["sol"]
     options.ignoreIds = ["222"]
     const logs = []

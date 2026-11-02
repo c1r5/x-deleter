@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs"
 import test from "node:test"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { defaultOptions, todayStamp } from "../src/core/options.js"
+import { daysAgoStamp, defaultOptions, todayStamp } from "../src/core/options.js"
 import { optionsFromFields } from "../src/ui/settings.js"
 import { begin } from "../src/ui/session.js"
 import { modalMarkup, showDate } from "../src/ui/modal.js"
@@ -150,7 +150,9 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.equal(seen.at(-1), "done")
     assert.equal(optionsFromFields({ keepPinned: true }).unretweet, true)
     assert.equal(optionsFromFields({ keepPinned: true }).beforeDate, todayStamp())
+    assert.equal(optionsFromFields({ keepPinned: true }).afterDate, daysAgoStamp(2))
     assert.equal(defaultOptions().beforeDate, todayStamp())
+    assert.equal(defaultOptions().afterDate, daysAgoStamp(2))
 
     const html = panelMarkup()
     assert.match(html, /Tweet deleter/)
@@ -182,6 +184,8 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.match(modal, /data-choice="deleteReplies" checked/)
     assert.equal(modal.includes('data-choice="nuke" checked'), false)
     assert.match(modal, /aria-label="Carregando"/)
+    assert.match(modal, /Nenhum tweet encontrado/)
+    assert.match(modal, /\.empty \{[^}]*color: var\(--muted\)/)
     assert.match(modal, /data-action="all" checked aria-label="Marcar tudo"/)
     assert.match(modal, /height: calc\(11 \* 42px\)/)
     assert.match(modal, /position:\s*fixed/)
