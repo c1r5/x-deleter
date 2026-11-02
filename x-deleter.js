@@ -21,6 +21,12 @@ document.documentElement.dataset.xDeleter = "on"
 
 const publicBearer = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 
+function todayStamp(now = new Date()) {
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    const day = String(now.getDate()).padStart(2, "0")
+    return `${now.getFullYear()}-${month}-${day}`
+}
+
 function defaultOptions() {
     return {
         fromArchive: false,
@@ -33,7 +39,7 @@ function defaultOptions() {
         ignoreIds: [],
         onlyIds: [],
         afterDate: "1900-01-01",
-        beforeDate: "2026-10-30",
+        beforeDate: todayStamp(),
     }
 }
 
@@ -932,6 +938,8 @@ function applyTheme(target, theme) {
     target.style.colorScheme = theme.scheme
 }
 
+
+
 function list(value) {
     return String(value || "").split(",").map((item) => item.trim()).filter(Boolean)
 }
@@ -948,7 +956,7 @@ function optionsFromFields(fields) {
         ignoreIds: list(fields.ignoreIds),
         onlyIds: list(fields.onlyIds),
         afterDate: fields.afterDate || "1900-01-01",
-        beforeDate: fields.beforeDate || "2026-10-30",
+        beforeDate: fields.beforeDate || todayStamp(),
     }
 }
 
@@ -1151,10 +1159,23 @@ const modalChrome = `
   header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; }
   h2 { margin: 0; font-size: 20px; font-weight: 800; }
   button.close { border: 0; background: transparent; color: var(--accent); font-size: 17px; padding: 0; }
-  .sheet { overflow: auto; min-height: 0; }
+  .title { display: flex; align-items: center; gap: 10px; }
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid color-mix(in srgb, var(--text) 25%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex: none;
+  }
+  .spinner[hidden] { display: none; }
+  @keyframes spin { to { transform: rotate(1turn); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  .sheet { overflow: auto; height: calc(11 * 42px); flex: none; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--edge, color-mix(in srgb, var(--text) 22%, var(--bg))); vertical-align: top; }
-  th { font-size: 13px; color: var(--muted); font-weight: 700; }
+  th, td { text-align: left; height: 20px; padding: 8px 12px; border-top: 1px solid var(--edge, color-mix(in srgb, var(--text) 22%, var(--bg))); vertical-align: top; line-height: 20px; }
+  th { font-size: 13px; color: var(--muted); font-weight: 700; position: sticky; top: 0; background: var(--bg); z-index: 1; }
   td.text { white-space: pre-wrap; word-break: break-word; }
   input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
   footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; }
@@ -1165,12 +1186,15 @@ const modalChrome = `
 <div class="back">
   <div class="modal" role="dialog" aria-modal="true" aria-label="Tweets encontrados">
     <header>
-      <h2>Tweets encontrados</h2>
+      <div class="title">
+        <h2>Tweets encontrados</h2>
+        <span class="spinner" role="status" aria-label="Carregando"></span>
+      </div>
       <button class="close" type="button" data-action="close">Fechar</button>
     </header>
     <div class="sheet">
       <table>
-        <thead><tr><th></th><th>Tipo</th><th>Data</th><th>Texto</th></tr></thead>
+        <thead><tr><th><input type="checkbox" data-action="all" checked aria-label="Marcar tudo"></th><th>Tipo</th><th>Data</th><th>Texto</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -1208,6 +1232,16 @@ function openSearchModal(document, theme, onExecute) {
     const rows = []
     const actions = defaultActions()
     const execute = shadow.querySelector("[data-action=execute]")
+    const all = shadow.querySelector("[data-action=all]")
+    const spinner = shadow.querySelector(".spinner")
+    function paintAll() {
+        const boxes = body.querySelectorAll('input[type="checkbox"]')
+        const total = boxes.length
+        let on = 0
+        for (const box of boxes) if (box.checked) on += 1
+        all.checked = total === 0 || on === total
+        all.indeterminate = on > 0 && on < total
+    }
     function paintActions() {
         for (const input of shadow.querySelectorAll("[data-choice]")) {
             input.checked = Boolean(actions[input.dataset.choice])
@@ -1216,6 +1250,7 @@ function openSearchModal(document, theme, onExecute) {
     const api = {
         stopped: false,
         enable() {
+            spinner.hidden = true
             if (!api.stopped) execute.disabled = false
         },
         addTweet(tweet) {
@@ -1230,6 +1265,7 @@ function openSearchModal(document, theme, onExecute) {
             box.dataset.id = tweet.id
             box.addEventListener("change", () => {
                 record.selected = box.checked
+                paintAll()
             })
             pick.append(box)
             const type = document.createElement("td")
@@ -1241,12 +1277,18 @@ function openSearchModal(document, theme, onExecute) {
             text.textContent = tweet.text
             row.append(pick, type, date, text)
             body.append(row)
+            paintAll()
         },
         close() {
             api.stopped = true
             host.remove()
         },
     }
+    all.addEventListener("change", () => {
+        all.indeterminate = false
+        for (const record of rows) record.selected = all.checked
+        for (const box of body.querySelectorAll('input[type="checkbox"]')) box.checked = all.checked
+    })
     for (const input of shadow.querySelectorAll("[data-choice]")) {
         input.addEventListener("change", () => {
             Object.assign(actions, toggleAction(actions, input.dataset.choice, input.checked))
@@ -1267,6 +1309,7 @@ function openSearchModal(document, theme, onExecute) {
     document.body.append(host)
     return api
 }
+
 
 
 
@@ -1366,7 +1409,7 @@ const markup = `
       </div>
       <div class="dates">
         <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
-        <label class="date">Até <input type="date" data-field="beforeDate" value="2026-10-30"></label>
+        <label class="date">Até <input type="date" data-field="beforeDate"></label>
       </div>
       <label class="field">Palavras <input type="text" data-field="keywords"></label>
       <label class="field">Ignorar estes IDs <input type="text" data-field="ignoreIds"></label>
@@ -1440,6 +1483,7 @@ function mountPanel(document, view, handlers) {
     const host = document.createElement("div")
     const shadow = host.attachShadow({ mode: "open" })
     shadow.innerHTML = markup
+    shadow.querySelector("[data-field=beforeDate]").value = todayStamp()
     const root = shadow.querySelector(".wrap")
     const logs = shadow.querySelector(".logs")
     const bar = shadow.querySelector(".progress > span")

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs"
 import test from "node:test"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { defaultOptions, todayStamp } from "../src/core/options.js"
 import { optionsFromFields } from "../src/ui/settings.js"
 import { begin } from "../src/ui/session.js"
 import { modalMarkup, showDate } from "../src/ui/modal.js"
@@ -148,6 +149,8 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.deepEqual(optionsSeen[0].onlyIds, [])
     assert.equal(seen.at(-1), "done")
     assert.equal(optionsFromFields({ keepPinned: true }).unretweet, true)
+    assert.equal(optionsFromFields({ keepPinned: true }).beforeDate, todayStamp())
+    assert.equal(defaultOptions().beforeDate, todayStamp())
 
     const html = panelMarkup()
     assert.match(html, /Tweet deleter/)
@@ -178,6 +181,9 @@ test("o painel usa as configurações rápidas e o tema da página", async () =>
     assert.match(modal, /data-choice="deletePosts" checked/)
     assert.match(modal, /data-choice="deleteReplies" checked/)
     assert.equal(modal.includes('data-choice="nuke" checked'), false)
+    assert.match(modal, /aria-label="Carregando"/)
+    assert.match(modal, /data-action="all" checked aria-label="Marcar tudo"/)
+    assert.match(modal, /height: calc\(11 \* 42px\)/)
     assert.match(modal, /position:\s*fixed/)
     assert.equal(showDate("Mon Jun 15 12:00:00 +0000 2020"), "15/06/2020")
     assert.equal(showDate(""), "")

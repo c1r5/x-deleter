@@ -2,6 +2,12 @@ import { defaultSlotRequest } from "./request.js"
 
 export const publicBearer = "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
 
+export function todayStamp(now = new Date()) {
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    const day = String(now.getDate()).padStart(2, "0")
+    return `${now.getFullYear()}-${month}-${day}`
+}
+
 export function defaultOptions() {
     return {
         fromArchive: false,
@@ -14,7 +20,7 @@ export function defaultOptions() {
         ignoreIds: [],
         onlyIds: [],
         afterDate: "1900-01-01",
-        beforeDate: "2026-10-30",
+        beforeDate: todayStamp(),
     }
 }
 

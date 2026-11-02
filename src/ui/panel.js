@@ -1,3 +1,4 @@
+import { todayStamp } from "../core/options.js"
 import { analyze } from "./capture.js"
 import { openSlot, presentManual, slotFromForm } from "./manual.js"
 import { watchPlacement } from "./place.js"
@@ -96,7 +97,7 @@ const markup = `
       </div>
       <div class="dates">
         <label class="date">De <input type="date" data-field="afterDate" value="1900-01-01"></label>
-        <label class="date">Até <input type="date" data-field="beforeDate" value="2026-10-30"></label>
+        <label class="date">Até <input type="date" data-field="beforeDate"></label>
       </div>
       <label class="field">Palavras <input type="text" data-field="keywords"></label>
       <label class="field">Ignorar estes IDs <input type="text" data-field="ignoreIds"></label>
@@ -170,6 +171,7 @@ export function mountPanel(document, view, handlers) {
     const host = document.createElement("div")
     const shadow = host.attachShadow({ mode: "open" })
     shadow.innerHTML = markup
+    shadow.querySelector("[data-field=beforeDate]").value = todayStamp()
     const root = shadow.querySelector(".wrap")
     const logs = shadow.querySelector(".logs")
     const bar = shadow.querySelector(".progress > span")
